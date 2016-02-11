@@ -2,15 +2,15 @@ PFLocalPlanner:
   robot_radius: 0.3
   goal_frame_id: "map"
   cmd_frame_id: "base_link"
-  safe_obs_dist: 0.5
+  safe_obs_dist: 0.6
   safe_goal_dist: 1.0
   attractive_gain: 0.65
-  repulsive_gain: 0.03
+  repulsive_gain: 0.027
   max_local_goal_dist: 0.5
-  min_obstacle_size_px: 10
+  min_obstacle_size_px: 1
   verbose: true
   local_map_th: 100
-  max_linear_v: 0.2
+  max_linear_v: 0.3
   max_angular_v: 1.2
   recovery_attemps: 10
   field_w: 4.0
@@ -18,5 +18,5 @@ PFLocalPlanner:
   local_map_resolution: 0.05
   scan_topic: "/scan"
   recovery_amplification: 1.0
-  goal_tolerance: 0.2
+  goal_tolerance: 0.1
   status_topic: "pf_status"
