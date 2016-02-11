@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-from skimage.measure import structural_similarity as ssim
+from skimage.measure import compare_ssim as ssim
 
 
 # using normalize neareast distance of all pixel
@@ -79,8 +79,8 @@ def nearest_error(groundtruth, slammap):
     #print "neighbours: ", neighbours,"\n"
     #print "distance: ", dist
     sume = np.sum(dist)
-    print "sum of error: ", sume, "\n"
-    print "normalize error:", (sume/ncells), "\n"
+    print "sum of error: ", sume
+    print "normalize error (NE):", (sume/ncells), "\n"
     #plt.show()
     #cv2.waitKey(0)
 
@@ -95,13 +95,13 @@ def mse(imageA, imageB):
 
     # return the MSE, the lower the error, the more "similar"
     # the two images are
-    print "mean square error:", err 
+    print "Mean square error (MSE):", err, "\n"
     return err
 
 # using structure similarity index
 def issim(imageA,imageB):
     e = ssim(imageA,imageB)
-    print "Structure similarity idex: ", e
+    print "Structure similarity index: (SSIM)", e
 
 ############################MAIN PROGRAM###################################
 # I. FIRST STEP: IMAGE REGISTRATION

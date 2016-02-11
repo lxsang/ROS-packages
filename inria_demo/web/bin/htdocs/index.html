@@ -6,12 +6,38 @@
 <!--script type="text/javascript" src="http://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script-->
 <script type="text/javascript" src="scripts/roslib.min.js"></script>
 <script type="text/javascript" src="scripts/jquery.min.js"></script>
-<script type="text/javascript" src="scripts/hamster.js"></script>
-<link rel="stylesheet" href="assets/style.css">
+<!--script type="text/javascript" src="scripts/mobileconsole.js"></script-->
+<script src="scripts/alertify.min.js"></script>
+<!-- include the style -->
+<link rel="stylesheet" href="assets/css/alertify.min.css" />
+<!-- include a theme -->
+<link rel="stylesheet" href="assets/css/themes/default.min.css" />
+<link rel="stylesheet" href="assets/css/style.css">
 <script src="scripts/main.js"></script>
 </head>
 
 <body>
+    <ul id = "toolbar">
+        <li id="upload" class="tooltip">
+            <span class="tooltiptext">Upload annotation file</span>
+        </li>
+        <li id = "fullscreenbt" class="tooltip">
+            <span class="tooltiptext">Enter fullscreen</span>
+        </li>
+        <li  id = "zoomin" class="tooltip">
+                <span class="tooltiptext">Zoom in</span>
+        </li>
+        <li id = "zoomout" class ="tooltip">
+                <span class="tooltiptext">Zoom out</span>
+        </li>
+        <li id = "next_goal" class="tooltip" >
+                <span class="tooltiptext">Go to next goal</span>
+        </li>
+        <li id = "home" class = "tooltip">
+                <span class="tooltiptext">Go to home</span>
+        </li>
+    </ul>
+    
     <div id = "workspace">
         <canvas id = "canvas"></canvas>
     </div>
