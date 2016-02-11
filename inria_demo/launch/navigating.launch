@@ -8,6 +8,7 @@
   <node name="dock_client" pkg="inria_demo" type="autodock_client.py" />
 
   <include file="$(find inria_demo)/launch/include/docking_minimal.launch" />
+  <include file="$(find inria_demo)/launch/web.launch" />
 
 
   <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
