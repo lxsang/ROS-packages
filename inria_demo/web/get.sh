@@ -10,4 +10,4 @@ cd ant-http
 make antd_plugins
 cd ../
 rm -r ant-http
-cp config.ini ./bin
+#cp config.ini ./bin
