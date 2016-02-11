@@ -18,5 +18,6 @@ PFLocalPlanner:
   local_map_resolution: 0.05
   scan_topic: "/scan"
   recovery_amplification: 1.0
-  goal_tolerance: 0.2
+  goal_tolerance_linear: 0.2
+  goal_tolerance_angular: 0.01
   status_topic: "pf_status"
