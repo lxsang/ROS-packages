@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf
   nav_msgs
-  torob_msgs
   geometry_msgs
   sensor_msgs
   visualization_msgs
@@ -125,7 +124,7 @@ catkin_package(
 include_directories(
   # include
   ${catkin_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/../torob/src
+  #${PROJECT_SOURCE_DIR}/../torob/src
 )
 
 ## Declare a C++ library
