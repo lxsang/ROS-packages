@@ -8,7 +8,7 @@ To exchange a ROS message one must define a helper to guild the protocol howto s
 
 ### Define a helper for a ROS message
 
-A bash script (*helper_gen.sh*) is available in the **src/helpers** folder allowing to generate the skeleton helper class for a ROS message. For example, if one want to define a helper for *geometry_msgs/Point*, just execute :
+A bash script (*helper_gen.sh*) is available in the **src/helpers** folder allowing to generate the skeleton helper class for a ROS message. For example, if one wants to define a helper for *geometry_msgs/Point*, just execute :
 
 ```h
   cd src/helpers
@@ -62,7 +62,7 @@ The protocol use a hash value to identify a correct helper for each exchanged da
 
 ### Sending ROS message to other master
 
-It up to the users to define when to send a ROS message to other master, this can be performed inside a topic, or a service, etc. The only requirement is that the helper for the target ROS message must be known by the protocol. This snippet shows how to send a *geometry_msgs::Point* message to other master:
+It's up to the users to define when to send a ROS message to other master, this can be performed inside a topic, or a service, etc. The only requirement is that the helper for the target ROS message must be known by the protocol. This snippet shows how to send a *geometry_msgs::Point* message to other master:
 
 ```c++
 geometry_msgs::Point data;
