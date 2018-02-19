@@ -11,4 +11,10 @@ This package contains launch files and 3D models for the "Evaluation of Out-of-t
   ```
   
  # Model
+ - cross
+ - loop
+ - maze
+ - zigzag
+ - dia: the model of our lab building
+ 
  
