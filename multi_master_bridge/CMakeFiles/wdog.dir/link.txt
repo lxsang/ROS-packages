@@ -1,0 +1,2 @@
+/usr/bin/ar qc devel/lib/libwdog.a  CMakeFiles/wdog.dir/src/watchdog.c.o CMakeFiles/wdog.dir/src/data_portal.c.o CMakeFiles/wdog.dir/src/helpers/BaseHelper.cpp.o CMakeFiles/wdog.dir/src/helpers/StringHelper.cpp.o
+/usr/bin/ranlib devel/lib/libwdog.a

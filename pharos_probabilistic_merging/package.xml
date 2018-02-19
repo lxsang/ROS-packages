@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package>
+  <name>pharos_probabilistic_merging</name>
+  <version>0.0.1</version>
+  <description>a not described catkin package implemented in PhaROS (http://car.mines-douai.fr/category/pharos)</description>
+  <maintainer email="anon@ymous.com">pharos</maintainer>
+  <license>MIT (http://opensource.org/licenses/MIT)</license>
+  <author email="anon@ymous.com">pharos</author> 
+  <buildtool_depend>catkin</buildtool_depend>
+  <export>
+  </export>
+</package>

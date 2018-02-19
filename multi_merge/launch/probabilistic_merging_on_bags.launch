@@ -1,0 +1,23 @@
+<launch>
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--quiet --clock $(find multi_merge)/bags/bag_origin.bag">
+    
+    </node>
+
+    <node pkg="rosbag" type="play" name="player1" output="screen" args="--quiet --clock $(find multi_merge)/bags/bag_bot.bag">
+        <remap from="/local_map" to = "/local_map_1"/>
+        <remap from="/pmap" to = "/pmap_1"/>
+    </node>
+    <node pkg="rosbag" type="play" name="player2" output="screen" args="--quiet --clock $(find multi_merge)/bags/bag_top.bag">
+        <remap from="/local_map" to = "/local_map_2"/>
+         <remap from="/pmap" to = "/pmap_2"/>
+    </node>
+
+    <node name="probabilistic_merging_ex" pkg="multi_merge" type="probabilistic_merging_ex" output="screen"/>
+     <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold" output="screen" launch-prefix="">
+        <param name="th_value" value="50"/>
+        <param name="map_in_topic" value="/global_map"/>
+        <param name="map_out_topic" value="/map"/>
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find multi_merge)/launch/bag_view.rviz"/>
+</launch>

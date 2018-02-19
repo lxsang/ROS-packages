@@ -1,0 +1,101 @@
+<launch>
+  
+   <arg name="world" />
+
+  <param name="/use_sim_time" value="true" />
+  <arg name="configuration_basename" value="turtlebot_urg_lidar_2d.lua" />
+
+  <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
+
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
+  
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="30.0" />
+  </node>
+
+  <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node-->
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/$(arg world).world"/> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 -->
+    <arg name="recording" value="false"/>
+    <arg name="debug" value="false"/>
+    <!--remap from="/tf" to="/gazebo_tf"/-->
+  </include>
+      
+    
+
+  <node name="cartographer_node" pkg="cartographer_ros"
+      type="cartographer_node" args="
+          -configuration_directory
+               $(find cartographer_turtlebot)/configuration_files
+          -configuration_basename turtlebot_urg_lidar_2d.lua"
+      output="screen">
+    <!--remap from="scan" to="/laser_scan" /-->
+  </node>
+
+  <node name="flat_world_imu_node" pkg="cartographer_turtlebot"
+      type="cartographer_flat_world_imu_node" output="screen">
+    <remap from="imu_in" to="/mobile_base/sensors/imu_data_raw" />
+    <remap from="imu_out" to="/imu" />
+  </node>
+
+  <node name="cartographer_occupancy_grid_node" pkg="cartographer_ros"
+      type="cartographer_occupancy_grid_node" args="-resolution 0.05" >
+      <remap from="/map" to="/pmap" />
+	</node>
+
+    <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold" output="screen" launch-prefix="">
+        <param name="th_value" value="55"/>
+        <param name="map_in_topic" value="/pmap"/>
+        <param name="map_out_topic" value="/map"/>
+  </node>
+
+  <include file="$(find gazebo_sim)/launch/includes/move_base.launch.xml" />
+  
+  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global" respawn="true">
+    
+    <rosparam ns="costmap" subst_value="true">
+      global_frame: /map
+      robot_base_frame: /base_link
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      rolling_window: false
+      always_send_full_costmap: true
+      # Map management parameters
+      unknown_cost_value: 255
+      
+      robot_radius: 0.3
+      plugins: 
+        - {name: static, type: "costmap_2d::StaticLayer"}
+        - {name: inflation,        type: "costmap_2d::InflationLayer"}  
+      static:
+        #Can pull data from gmapping, map_server or a non-rolling costmap            
+        map_topic: /map
+        subscribe_to_updates: true 
+      inflation:
+        inflation_radius: 0.5
+
+    </rosparam>
+  </node>
+
+
+  <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
+      <param name="map" value="/costmap_for_exploration_global/costmap/costmap"/>
+      <param name="min_frontier_size_px" value="10"/>
+    </node>
+
+    <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation" output="screen">
+      <param name="goal_tolerance" value="0.5"/>
+      <param name="frontier_tolerance" value="0.05"/>
+      <param name="random_frontier" value="false"/>
+      <param name="cmd_vel_topic" value="/mobile_base/commands/velocity"/>
+    </node>  
+  
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find gazebo_sim)/launch/includes/carto_view.rviz"/>
+      <node name="rst_tracking" pkg="gazebo_sim" type="rsload.sh" args="cartographer_n" respawn="true" />
+
+</launch>

@@ -1,0 +1,132 @@
+<launch>
+    <arg name="iface" default="wlo1" />
+    <arg name="port" default="9196" />
+    <arg name="init_x" default="4.17740601872"/> <!--0.83-->
+    <arg name="init_y" default="-2.26276757779"/> <!--n1.03-->
+    <arg name="init_z" default="-0.0256787332934"/>
+    <arg name="neighbor_map" default="/neighbor_map"/>
+    <arg name="map_update" default="/map_update"/>
+    <arg name = "global_map_topic" default="/map" />
+
+    
+    <node pkg="multi_master_bridge" type="portal" respawn="false" name="portal" launch-prefix="" /> 
+
+    <node pkg="multi_master_bridge" type="beacon" respawn="false" name="beacon"> 
+        <param name="broadcast_to" value="$(arg port)"/>
+        <param name="broadcast_interface" value="$(arg iface)"/>
+        <param name="refresh_rate" value="1"/>
+    </node>
+  
+    <node pkg="multi_master_bridge" type="robot_discover" respawn="false" name="robot_discover" > 
+        <param name="listen_to" value="$(arg port)"/>
+         <param name="robot_decay_time_s" value="5"/>
+        <param name="listen_interface" value="$(arg iface)"/>
+    </node>
+
+    <!-- GREEDY MERGING -->
+    <node pkg="multi_merge" type="greedy_merging" respawn="false" name="greedy_merging" output="screen" launch-prefix="">
+        <param name="other_map" value="$(arg neighbor_map)"/>
+        <param name="my_map" value="/local_map"/>
+        <param name="merged_map_topic" value="$(arg global_map_topic)"/>
+        <param name="init_x" value="$(arg init_x)"/>
+        <param name="init_y" value="$(arg init_y)"/>
+        <param name="init_z" value="$(arg init_z)"/>
+        <param name="map_update_topic" value="$(arg map_update)"/>
+        <param name="furious_merge" value="false"/>
+        <param name="map_resolution" value="0.05"/>
+    </node>
+
+    <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold" output="screen" launch-prefix="">
+        <param name="th_value" value="60"/>
+        <param name="map_in_topic" value="/pmap"/>
+        <param name="map_out_topic" value="/local_map"/>
+    </node>
+
+    <!-- PROBABILISTIC MERGING -->
+    <!--node pkg="multi_merge" type="probabilistic_merging" respawn="false" name="probabilistic_merging"  launch-prefix="">
+        <param name="other_map" value="$(arg neighbor_map)"/>
+        <param name="my_map" value="/pmap"/>
+        <param name="merged_map_topic" value="/global_map"/>
+        <param name="init_x" value="$(arg init_x)"/>
+        <param name="init_y" value="$(arg init_y)"/>
+        <param name="init_z" value="$(arg init_z)"/>
+        <param name="map_update_topic" value="$(arg map_update)"/>
+        <param name="map_resolution" value="0.05"/>
+    </node>
+    <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold"  launch-prefix="">
+        <param name="th_value" value="60"/>
+        <param name="map_in_topic" value="/global_map"/>
+        <param name="map_out_topic" value="$(arg global_map_topic)"/>
+    </node-->
+
+    <!--node pkg="pharos_probabilistic_merging" type="headless" respawn="false" name="pharos_probabilistic_merging" output="screen" args="pharos_probabilistic_mergingpackage_merging">
+        <param name="other_map" value="$(arg neighbor_map)"/>
+        <param name="my_map" value="/pmap"/>
+        <param name="merged_map_topic" value="/global_map"/>
+        <param name="init_x" value="$(arg init_x)"/>
+        <param name="init_y" value="$(arg init_y)"/>
+        <param name="init_z" value="$(arg init_z)"/>
+        <param name="map_update_topic" value="$(arg map_update)"/>
+        <param name="map_width_m" value="60.0"/>
+        <param name="map_height_m" value="60.0"/>
+        <param name="map_resolution" value="0.05"/>
+    </node-->
+
+     <node pkg="multi_master_bridge" type="map_feeding" respawn="false" name="map_exchange" launch-prefix="">
+     <!-- gdb -ex run ~~args -->
+        <param name="publish_to" value="$(arg neighbor_map)"/>
+        <param name="network_interface" value="$(arg iface)"/>
+        <param name="map_update_topic" value="$(arg map_update)"/>
+        <param name="sending_rate" value="0.2" />
+    </node>
+  
+    <include file="$(find multi_merge)/launch/cartographer_minimal.launch" />
+    <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
+
+  <node pkg="pose_publisher" type="pose_publisher" name="pose_publisher" output="screen">
+        <param name="map_frame" value="/map" />
+         <param name="base_frame" value="/base_link" />
+        <param name="pose_topic_name" value="/posegmapping" />
+        <param name="publish_frequency" value="10.0" />
+  </node>
+ 
+  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
+    
+    <rosparam ns="costmap" subst_value="true">
+      global_frame: /map
+      robot_base_frame: /base_link
+      update_frequency: 0.2
+      publish_frequency: 0.2
+      rolling_window: false
+      always_send_full_costmap: true
+
+      # Map management parameters
+      unknown_cost_value: 255
+      
+      robot_radius: 0.25
+      plugins: 
+        - {name: static, type: "costmap_2d::StaticLayer"}
+        - {name: inflation,        type: "costmap_2d::InflationLayer"}  
+      static:
+        #Can pull data from gmapping, map_server or a non-rolling costmap            
+        map_topic: /map
+        subscribe_to_updates: true 
+      inflation:
+        inflation_radius: 0.3
+
+    </rosparam>
+  </node>
+  
+  <node pkg="phrontier_exploration" type="headless" name="exploration_global" args="phrontier_explorationpackage_extract_frontiers_bis">
+    <param name="map_topic" value="/costmap_for_exploration_global/costmap/costmap"/>
+    <param name="frontier_topic" value="phrontier_global"/>
+  </node>
+
+    <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation" output="screen">
+      <param name="goal_tolerance" value="0.8"/>
+      <param name="frontier_tolerance" value="0.2"/>
+      <param name="random_frontier" value="false"/>
+    </node>  
+
+     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+</launch>

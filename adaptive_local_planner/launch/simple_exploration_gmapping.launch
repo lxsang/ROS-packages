@@ -1,0 +1,78 @@
+
+
+<launch>
+
+  <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
+
+
+   <node pkg="pose_publisher" type="pose_publisher" name="pose_publisher" output="screen">
+        <param name="map_frame" value="/map" />
+         <param name="base_frame" value="/base_link" />
+        <param name="pose_topic_name" value="/posegmapping" />
+        <param name="publish_frequency" value="10.0" />
+
+  </node>
+
+    <node  pkg="urg_node" type="urg_node" name="urg_node" >
+     <param name="angle_min" value="-1.6"/>
+     <param name="angle_max" value="1.6"/>
+  </node>
+  <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
+  
+  <node pkg="gmapping" type="slam_gmapping" name="gmapping_node" >
+
+    <param name="maxUrange" value="4.0"/>
+    <!-- Map size / start point -->
+    <param name="delta" value="0.05"/>
+    <param name="xmin" value="-3.0"/>
+    <param name="ymin" value="-3.0"/>
+    <param name="xmax" value="3.0"/>
+    <param name="ymax" value="3.0"/>
+    <param name="map_update_interval" value="2.0"/>
+    <param name="temporalUpdate" value="2.0"/>
+  </node>
+
+  <!--used to compute frontiers by   rosrun phrontier_exploration headless phrontier_explorationpackage_extract_frontiers -->
+  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
+    
+    <rosparam ns="costmap" subst_value="true">
+      global_frame: /map
+      robot_base_frame: /base_link
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      rolling_window: false
+      always_send_full_costmap: true
+
+      # Map management parameters
+      unknown_cost_value: 255
+      
+      robot_radius: 0.3
+      plugins: 
+        - {name: static, type: "costmap_2d::StaticLayer"}
+        - {name: inflation,        type: "costmap_2d::InflationLayer"}  
+      static:
+        #Can pull data from gmapping, map_server or a non-rolling costmap            
+        map_topic: /map
+        subscribe_to_updates: true 
+      inflation:
+        inflation_radius: 0.3
+
+    </rosparam>
+  </node>
+  
+  <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
+      <param name="map" value="/costmap_for_exploration_global/costmap/costmap"/>
+      <param name="min_frontier_size_px" value="10"/>
+    </node>
+
+    <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation" output="screen">
+      <param name="goal_tolerance" value="0.5"/>
+      <param name="frontier_tolerance" value="0.05"/>
+      <param name="random_frontier" value="false"/>
+      <param name="cmd_vel_topic" value="/mobile_base/commands/velocity"/>
+    </node>
+  
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+
+  <!--node name="rst_tracking" pkg="gazebo_sim" type="rsload.sh" args="slam_gmapping" respawn="true" /-->
+</launch>

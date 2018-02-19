@@ -1,0 +1,11 @@
+AdaptiveLocalPlanner:
+  robot_radius: 0.25
+  max_local_goal_dist: 0.5
+  dmax_l_speed: 0.2
+  max_a_speed: 1.5
+  goal_frame_id: "/map"
+  cmd_frame_id: "base_link"
+  scan_topic: "/scan"
+  vmap_topic: "/scan_vmap"
+  verbose: true
+  perception_distance: 2.5

@@ -1,0 +1,15 @@
+PFLocalPlanner:
+  robot_radius: 0.3
+  local_map_topic: "/move_base/local_costmap/costmap"
+  goal_frame_id: "map"
+  cmd_frame_id: "base_link"
+  safe_obs_dist: 0.5
+  safe_goal_dist: 1.0
+  attractive_gain: 0.8
+  repulsive_gain: 0.04
+  max_local_goal_dist: 0.5
+  min_obstacle_size_px: 10
+  verbose: true
+  cosmap_th: 100
+  max_linear_v: 0.35
+  recovery_attemps: 10
