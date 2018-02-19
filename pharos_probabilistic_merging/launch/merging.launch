@@ -1,0 +1,14 @@
+<launch>
+    <node pkg="pharos_probabilistic_merging" type="headless" respawn="false" name="pharos_probabilistic_merging" output="screen" args="pharos_probabilistic_mergingpackage_merging">
+        <param name="other_map" value="/neighbor_map"/>
+        <param name="my_map" value="/pmap"/>
+        <param name="merged_map_topic" value="/depmap"/>
+        <param name="init_x" value="0.2"/>
+        <param name="init_y" value="0.4"/>
+        <param name="init_z" value="-0.1"/>
+        <param name="map_update_topic" value="/newmap"/>
+        <param name="map_width_m" value="60.0"/>
+        <param name="map_height_m" value="60.0"/>
+        <param name="map_resolution" value="0.05"/>
+    </node>
+</launch>

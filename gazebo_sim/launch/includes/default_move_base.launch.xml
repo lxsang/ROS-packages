@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+
+<node pkg="move_base" type="move_base" respawn="true" name="move_base" >
+    <remap from="/base_scan" to="/scan"/>
+    <!--remap from="cmd_vel" to="/mobile_base/commands/velocity"/-->
+    <remap from="cmd_vel" to="/mobile_base/commands/velocity"/>
+    <rosparam file="$(find multi_merge)/param/costmap_common_turtlebot.yaml" command="load" ns="global_costmap"/> 
+    <rosparam file="$(find multi_merge)/param/costmap_common_turtlebot.yaml" command="load" ns="local_costmap"/> 
+
+    <rosparam file="$(find multi_merge)/param/global_costmap.yaml" command="load" />  
+    <rosparam file="$(find multi_merge)/param/local_costmap.yaml" command="load" />
+    <!--rosparam file="$(find multi_merge)/param/global_planner_params.yaml" command="load" /-->
+    <!--rosparam file="$(find multi_merge)/param/navfn_global_planner_params.yaml" command="load" /-->
+
+    <rosparam file="$(find multi_merge)/param/move_base.yaml" command="load" />
+    <!--rosparam file="$(find multi_merge)/param/teb_local_planner.yaml" command="load" /-->
+    <rosparam file="$(find multi_merge)/param/trajectory_planner_turtlebot.yaml" command="load"/>
+</node>
+
+</launch>

@@ -1,0 +1,33 @@
+<!-- 
+    ROS navigation stack with velocity smoother and safety (reactive) controller
+-->
+<launch> 
+  <arg name="odom_frame_id"   default="odom"/>
+  <arg name="base_frame_id"   default="base_footprint"/>
+  <arg name="global_frame_id" default="map"/>
+  <arg name="odom_topic" default="odom" />
+  <arg name="laser_topic" default="scan" />
+
+  <node pkg="move_base" type="move_base" respawn="true" name="move_base" output="screen">
+    <rosparam file="$(find adaptive_local_planner)/launch/includes/costmap_common_params.yaml" command="load" ns="global_costmap"/> 
+    <rosparam file="$(find adaptive_local_planner)/launch/includes/global_costmap_params.yaml" command="load" />
+
+    <!--rosparam file="$(find adaptive_local_planner)/launch/includes/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+     <rosparam file="$(find adaptive_local_planner)/launch/includes/local_costmap_params.yaml" command="load" /-->
+
+    <rosparam file="$(find adaptive_local_planner)/launch/includes/global_planner_params.yaml" command="load" />
+
+    <rosparam file="$(find adaptive_local_planner)/launch/includes/move_base_params.yaml" command="load" />
+    <!-- external params file that could be loaded into the move_sbase namespace -->
+    <rosparam file="$(find adaptive_local_planner)/launch/includes/pf_local_planner.yaml" command="load" />
+    <!--rosparam file="$(find adaptive_local_planner)/launch/includes/navfn_global_planner_params.yaml" command="load" /-->
+
+    <!-- reset frame_id parameters using user input data -->
+    <param name="global_costmap/global_frame" value="$(arg global_frame_id)"/>
+    <param name="global_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+    <remap from="base_scan" to="/scan"/>
+    <remap from="cmd_vel" to="/mobile_base/commands/velocity"/>
+    <remap from="odom" to="$(arg odom_topic)"/>
+    <remap from="scan" to="$(arg laser_topic)"/>
+  </node>
+</launch>

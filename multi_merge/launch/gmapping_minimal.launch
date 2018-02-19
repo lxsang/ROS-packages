@@ -1,0 +1,23 @@
+<launch>
+ <include file="$(find kobuki_node)/launch/robot_with_tf.launch" />
+ <node  pkg="urg_node" type="urg_node" name="urg_node" >
+    <param name="angle_min" value="-1.6"/>
+    <param name="angle_max" value="1.6"/>
+  </node>
+  <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
+  
+  <node pkg="gmapping" type="slam_gmapping" name="gmapping_node" >
+
+    <param name="maxUrange" value="4.0"/>
+    <!-- Map size / start point -->
+    <param name="delta" value="0.05"/>
+    <param name="xmin" value="-30.0"/>
+    <param name="ymin" value="-30.0"/>
+    <param name="xmax" value="30.0"/>
+    <param name="ymax" value="30.0"/>
+    <param name="map_update_interval" value="5.0"/>
+    <param name="temporalUpdate" value="2.0"/>
+    <remap from="/map" to="/local_map"/>
+  </node>
+
+</launch>

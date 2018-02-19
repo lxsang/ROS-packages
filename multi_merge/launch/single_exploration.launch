@@ -1,0 +1,59 @@
+<launch>
+  <include file="$(find multi_merge)/launch/cartographer_minimal.launch" />
+  <include file="$(find multi_merge)/launch/move_base.launch" />
+ 
+  <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold" output="screen" launch-prefix="">
+        <param name="th_value" value="55"/>
+        <param name="map_in_topic" value="/pmap"/>
+        <param name="map_out_topic" value="/map"/>
+  </node>
+
+   <!--node pkg="pose_publisher" type="pose_publisher" name="pose_publisher" output="screen">
+        <param name="map_frame" value="/map" />
+         <param name="base_frame" value="/base_link" />
+        <param name="pose_topic_name" value="/posegmapping" />
+        <param name="publish_frequency" value="10.0" />
+  </node-->
+
+  <!--used to compute frontiers by   rosrun phrontier_exploration headless phrontier_explorationpackage_extract_frontiers -->
+  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
+    
+    <rosparam ns="costmap" subst_value="true">
+      global_frame: /map
+      robot_base_frame: /base_link
+      update_frequency: 0.2
+      publish_frequency: 0.2
+      rolling_window: false
+      always_send_full_costmap: true
+
+      # Map management parameters
+      unknown_cost_value: 255
+      
+      robot_radius: 0.25
+      plugins: 
+        - {name: static, type: "costmap_2d::StaticLayer"}
+        - {name: inflation,        type: "costmap_2d::InflationLayer"}  
+      static:
+        #Can pull data from gmapping, map_server or a non-rolling costmap            
+        map_topic: /map
+        subscribe_to_updates: true 
+      inflation:
+        inflation_radius: 0.4
+
+    </rosparam>
+  </node>
+  
+  <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
+      <param name="map" value="/costmap_for_exploration_global/costmap/costmap"/>
+      <param name="min_frontier_size_px" value="10"/>
+    </node>
+
+  <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation" output="screen">
+    <param name="goal_tolerance" value="0.5"/>
+    <param name="frontier_tolerance" value="0.05"/>
+    <param name="random_frontier" value="false"/>
+    <param name="cmd_vel_topic" value="/mobile_base/commands/velocity"/>
+  </node> 
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find multi_merge)/launch/exploration.rviz"/>
+</launch>

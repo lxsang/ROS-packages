@@ -1,0 +1,8 @@
+ <library path="lib/libadaptive_local_planner_lib">
+  <!--class name="local_planner/AdaptiveLocalPlanner" type="local_planner::AdaptiveLocalPlanner" base_class_type="nav_core::BaseLocalPlanner">
+    <description>This is an adaptive local planner plugin for move base. Under MIT licence.</description>
+  </class-->
+  <class name="local_planner/PFLocalPlanner" type="local_planner::PFLocalPlanner" base_class_type="nav_core::BaseLocalPlanner">
+    <description>This is an adaptive local planner plugin for move base. Under MIT licence.</description>
+  </class>
+ </library>
