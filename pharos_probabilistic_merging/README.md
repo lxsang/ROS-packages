@@ -1,9 +1,9 @@
 # PhaROS probabilistic merging for multimaster robots explorations
 
 ### Dependencies
-  - Multimaster bridge : https://github.com/CARMinesDouai/MultiRobotExplorationPackages/tree/master/multi_master_bridge
-  - Cartographer : https://github.com/CARMinesDouai/cartographer
-  
+  - Multimaster bridge : https://github.com/lxsang/ROS-packages/tree/master/multi_master_bridge
+  - Cartographer : http://wiki.ros.org/cartographer
+  - PhaROS
 ### Installation
 ```sh
 pharos create pharos_probabilistic_merging
