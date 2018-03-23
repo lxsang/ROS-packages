@@ -173,7 +173,7 @@ add_executable(map_to_image
 add_executable(map_threshold
   src/map_threshold.cpp
 )
-target_link_libraries(greedy_merging  ${catkin_LIBRARIES})
+target_link_libraries(greedy_merging ${OpenCV_LIBS}  ${catkin_LIBRARIES})
 target_link_libraries(probabilistic_merging  ${catkin_LIBRARIES})
 target_link_libraries(probabilistic_merging_ex  ${catkin_LIBRARIES})
 target_link_libraries(map_threshold  ${catkin_LIBRARIES})

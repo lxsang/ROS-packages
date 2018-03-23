@@ -33,6 +33,7 @@ extern "C"
 #include <signal.h>
 #include "../helpers/DataConsumer.h"
 static int sockfd=-1;
+static unsigned port = -1;
 ros::Publisher pub;
 //pthread_mutex_t publishing_mutex;
 
@@ -51,6 +52,15 @@ void callback(struct portal_data_t d)
     }
     //pthread_mutex_unlock(&publishing_mutex);
 }
+
+/*service to return portal address*/
+/*bool portal_address(multi_master_bridge::PortalPort::Request &req, multi_master_bridge::PortalPort::Response &res)
+{
+    res.port = port;
+    ROS_INFO("Called with port: %d\n", port );
+    return true;
+}*/
+
 void sig_handle(int s)
 {
 	if(sockfd > 0)
@@ -71,7 +81,7 @@ int main(int argc, char **argv)
 	ros::Rate loop_rate(10);
     signal(SIGINT, sig_handle);
     
-    unsigned port = 0;
+    port = 0;
     sockfd = portal_startup(&port);
 	std::stringstream ss;
 	ss << "Listen on port"<< port;
@@ -85,6 +95,7 @@ int main(int argc, char **argv)
     
     while(ros::ok())
     {
+        ros::spinOnce();
 		pub.publish(msg);
         client_sock = portal_listen(sockfd);
         if (client_sock == -1)

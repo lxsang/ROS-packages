@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(multi_master_bridge)
+project(multi_robot_sim)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++0x)
+# add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -11,9 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  geometry_msgs
-  nav_msgs
-  message_generation 
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,34 +47,31 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- add_message_files(
-   FILES
-   NeighbourId.msg
-   MapData.msg
-   NeighbourList.msg
- )
+# add_message_files(
+#   FILES
+#   Message1.msg
+#   Message2.msg
+# )
 
 ## Generate services in the 'srv' folder
- add_service_files(
-   FILES
-   PortalPort.srv
+# add_service_files(
+#   FILES
+#   Service1.srv
 #   Service2.srv
- )
-  
+# )
+
 ## Generate actions in the 'action' folder
 # add_action_files(
-#   FILES 
+#   FILES
 #   Action1.action
 #   Action2.action
 # )
 
 ## Generate added messages and services with any dependencies listed here
- generate_messages(
-   DEPENDENCIES
-   std_msgs
-   geometry_msgs
-   nav_msgs
- )
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -110,9 +104,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES multi_master_bridge
-  CATKIN_DEPENDS roscpp rospy std_msgs  message_runtime
-#  DEPENDS system_lib 
+#  LIBRARIES gazebo_sim
+#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  DEPENDS system_lib
 )
 
 ###########
@@ -128,25 +122,9 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/multi_master_bridge.cpp
+#   src/${PROJECT_NAME}/gazebo_sim.cpp
 # )
 
-add_library(wdog STATIC
-  src/bridge/watchdog.c
-  src/bridge/data_portal.c
-  src/helpers/StringHelper.cpp
-  src/helpers/Int32Helper.cpp
-  src/helpers/HeaderHelper.cpp
-  src/helpers/DataConsumer.cpp
-  src/helpers/BaseHelper.cpp
-  src/helpers/PointHelper.cpp
-  src/helpers/QuaternionHelper.cpp
-  src/helpers/PoseHelper.cpp
-  src/helpers/MapMetaDataHelper.cpp
-  src/helpers/OccupancyGridHelper.cpp
-  src/helpers/MapDataHelper.cpp
-)
-add_dependencies(wdog multi_master_bridge_generate_messages_cpp)
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -155,40 +133,7 @@ add_dependencies(wdog multi_master_bridge_generate_messages_cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/multi_master_bridge_node.cpp)
-
-add_executable(beacon
-  src/bridge/beacon.cpp
-)
-add_executable(robot_discover
-  src/bridge/robot_discover.cpp
-)
-add_executable(portal
-  src/bridge/portal.cpp
-)
-add_executable(map_feeding
-  src/map_feeding.cpp
-)
-add_executable(udp_broadcast
-  src/udp_broadcast.cpp
-)
-add_executable(udp_dog
-  src/udp_dog.cpp
-)
-
-
-add_executable(init_map_for_newcommer
-  src/init_map_feed.cpp
-)
-
-target_link_libraries(wdog   ${OpenCV_LIBS} ${catkin_LIBRARIES})
-target_link_libraries(beacon wdog  ${catkin_LIBRARIES})
-target_link_libraries(robot_discover wdog ${catkin_LIBRARIES})
-target_link_libraries(portal wdog ${catkin_LIBRARIES})
-target_link_libraries(map_feeding wdog ${catkin_LIBRARIES})
-target_link_libraries(udp_broadcast wdog ${catkin_LIBRARIES})
-target_link_libraries(udp_dog wdog ${catkin_LIBRARIES})
-target_link_libraries(init_map_for_newcommer wdog ${catkin_LIBRARIES})
+# add_executable(${PROJECT_NAME}_node src/gazebo_sim_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -245,7 +190,7 @@ target_link_libraries(init_map_for_newcommer wdog ${catkin_LIBRARIES})
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_multi_master_bridge.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_gazebo_sim.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

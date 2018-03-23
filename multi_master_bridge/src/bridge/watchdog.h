@@ -51,6 +51,7 @@ struct inet_id_ {
     struct in_addr  broadcast;
     char* hostname;
     unsigned char mac[6];
+    unsigned port;
 };
 
 struct beacon_t {

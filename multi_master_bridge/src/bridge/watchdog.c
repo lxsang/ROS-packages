@@ -155,8 +155,12 @@ int bind_udp_socket(int port)
 			perror("listener: socket");
 			continue;
 		}
-
-		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
+        {
+            perror("setsockopt(SO_REUSEADDR) failed");
+            continue;
+        }
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			close(sockfd);
 			perror("listener: bind");
 			continue;
@@ -428,12 +432,6 @@ struct beacon_t sniff_beacon(int sockfd,struct inet_id_ id)
         //perror("recvfrom");
         return beacon;
 	}
-    sa = (struct sockaddr *)&their_addr;
-    if(((struct sockaddr_in*)sa)->sin_addr.s_addr == id.ip.s_addr)
-    {
-        //MLOG("Beacon sending by me, ignore it \n");
-        return beacon;
-    }
     int* v = (int*)buf;
     // read host name
     if(*v == MAGIC_HEADER && numbytes > 12)
@@ -452,7 +450,15 @@ struct beacon_t sniff_beacon(int sockfd,struct inet_id_ id)
         memcpy(beacon.hostname,buf+8,*v);
         v = (int*)(buf+2*sizeof(int)+*v);
         beacon.port = *v;
-        beacon.status = 1;
+
+        sa = (struct sockaddr *)&their_addr;
+        if(((struct sockaddr_in*)sa)->sin_addr.s_addr == id.ip.s_addr && id.port == beacon.port)
+        {
+            //MLOG("Beacon sending by me, ignore it \n");
+            beacon.status = 0;
+        }
+        else
+            beacon.status = 1;
         return beacon;
     }
 }

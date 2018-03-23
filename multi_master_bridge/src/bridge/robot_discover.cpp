@@ -33,9 +33,15 @@ extern "C"
  #include <signal.h>
 #include "multi_master_bridge/NeighbourId.h"
 #include "multi_master_bridge/NeighbourList.h"
+#include "std_msgs/Int32.h"
 static int sockfd = -1;
 int robot_decay_time_s;
-
+int port = -1;
+void callback(const std_msgs::Int32::ConstPtr& msg)
+{
+	port = msg->data;
+	//ROS_INFO("Port is %d\n", port);
+}
 void sig_handle(int s)
 {
 	if(sockfd > 0)
@@ -60,12 +66,20 @@ int main(int argc, char **argv)
 
 	sockfd = bind_udp_socket(listen_to);
 	struct inet_id_ id = read_inet_id(listen_interface.c_str());
+	ros::Subscriber sub = n.subscribe<std_msgs::Int32>("/portal", 50,
+                                                   &callback);
 	bool robot_found = false;
 	int found_index = -1;
 	if(sockfd > 0)
 	{
 		while (ros::ok())
 		{
+			ros::spinOnce();
+			if(port == -1)
+			{
+				continue;
+			}
+			id.port = port;
 			multi_master_bridge::NeighbourId msg;
 			struct beacon_t a = sniff_beacon(sockfd,id);
 			if(a.status)
@@ -82,7 +96,7 @@ int main(int argc, char **argv)
 			for(int i = 0; i < mylist.size;i++)
 			{
 				int interval = t.sec -  mylist.list[i].header.stamp.sec;
-				if(found_index == -1 && robot_found && msg.ip == mylist.list[i].ip )
+				if(found_index == -1 && robot_found && msg.ip == mylist.list[i].ip && msg.port == mylist.list[i].port)
 				{
 					found_index = i;
 				} else if (mylist.list[i].status != -1 && interval > robot_decay_time_s)
@@ -116,7 +130,6 @@ int main(int argc, char **argv)
 				robot_found = false;
 			}
 			dog_pub.publish(mylist);
-			ros::spinOnce();
 			loop_rate.sleep();
 		}
 	}

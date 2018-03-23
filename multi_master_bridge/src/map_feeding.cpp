@@ -41,6 +41,11 @@ std::string publish_to,_interface,map_update_,map_local_;
 double _init_x,_init_y,_init_z,_sending_rate;
 static int sockfd=-1;
 struct inet_id_ id;
+void callback(const std_msgs::Int32::ConstPtr& msg)
+{
+	id.port = msg->data;
+	//ROS_INFO("Port is %d\n", port);
+}
 
 void neighbors_discover(const multi_master_bridge::NeighbourList::ConstPtr& msg)
 {
@@ -56,7 +61,7 @@ void send_newmap(const multi_master_bridge::MapData::ConstPtr& msg)
 	//data->position.x = _init_x;
 	//data->position.y = _init_y;
 	//data->position.z = _init_z;
-	data->ip = string(inet_ntoa(id.ip));
+	data->ip = string(inet_ntoa(id.ip)).append(":").append(std::to_string(id.port));
 	hp.consume((void*)data);
 	struct portal_data_t d = hp.getPortalDataFor(inet_ntoa(id.ip));
 	d.publish_to = (char*)publish_to.c_str();
@@ -66,7 +71,7 @@ void send_newmap(const multi_master_bridge::MapData::ConstPtr& msg)
 	{
 		if(neighbors.list[i].status != -1 ) //&& neighbors.list[i].status != 1
 		{
-			ROS_INFO("Feed map to %s (%s):%d", neighbors.list[i].ip.c_str(),  neighbors.list[i].name.c_str() , neighbors.list[i].port);
+			ROS_INFO("Feed map to %s (%s):%d from %s", neighbors.list[i].ip.c_str(),  neighbors.list[i].name.c_str() , neighbors.list[i].port, data->ip.c_str());
 			teleport_raw_data( neighbors.list[i].ip.c_str(), neighbors.list[i].port,d);
 		}
 	}
@@ -89,6 +94,7 @@ int main(int argc, char **argv)
 	//pub = n.advertise<nav_msgs::OccupancyGrid>("other_map", 1000);
 	ros::Subscriber sub = n.subscribe<multi_master_bridge::NeighbourList>("/new_robot", 50,&neighbors_discover);
 	ros::Subscriber sub1 = n.subscribe<multi_master_bridge::MapData>(map_update_, 1,&send_newmap);
+	ros::Subscriber psub = n.subscribe<std_msgs::Int32>("/portal", 50, &callback);
 	ros::Rate loop_rate(_sending_rate);
 	id = read_inet_id(_interface.c_str());
 	ROS_INFO("My address %s on %s, publish rate: %f",inet_ntoa(id.ip), _interface.c_str(), _sending_rate);
