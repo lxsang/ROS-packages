@@ -27,6 +27,13 @@ SOFTWARE.
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Pose.h"
 
+// open CV header
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+
+using namespace cv;
+using namespace std;
+
 #define UNKNOWN -1
 std::string other_map_,my_map_,merged_map_topic,map_update_;
 bool furious_merge;
@@ -35,8 +42,69 @@ nav_msgs::OccupancyGridPtr local_map;
 geometry_msgs::Pose my_pose;
 ros::Publisher  global_map_pub;
 ros::Publisher  map_update_pub;
+ros::Publisher test_map_pub;
 std::map<std::string,  multi_master_bridge::MapData> pipeline;
-double map_width_m_, map_height_m_, map_resolution_;
+double map_width_m_, map_height_m_, map_resolution_, merged_map_inlate_;
+
+void dilate_map (int k);
+void erode_map (int k);
+
+cv::Mat mapToMat(const nav_msgs::OccupancyGrid *map)
+{
+    cv::Mat im(map->info.height, map->info.width, CV_8UC1);
+
+    if (map->info.height*map->info.width != map->data.size())
+    {
+        ROS_ERROR("Data size doesn't match width*height: width = %d, height = %d, data size = %zu", map->info.width, map->info.height, map->data.size());
+    }
+
+    // transform the map in the same way the map_saver component does
+    for (size_t i=0; i < map->info.height*map->info.width; i++)
+    {
+        if (map->data.at(i) == 0)
+        {
+            im.data[i] = 254;
+        }
+        else
+        {
+            if(map->data.at(i) == 100)
+            {
+                im.data[i] = 0;
+            }
+            else
+            {
+                im.data[i] = 205;
+            }
+        }
+    }
+
+    return im;
+}
+
+nav_msgs::OccupancyGrid* matToMap(const cv::Mat mat, nav_msgs::OccupancyGrid *forInfo)
+{
+    nav_msgs::OccupancyGrid* toReturn = forInfo;
+    for(size_t i=2; i<toReturn->info.height * toReturn->info.width;i++)
+    {
+        //toReturn->data.push_back(mat.data[i]);
+       //if(mat.data[i]== 254)//KNOWN
+        //   toReturn->data[i]=0;
+        // here it is <10 and not 0 (like in mapToMat), becouse otherwise we loose much
+        //walls etc. but so we get a little of wrong information in the unkown area, what is
+        // not so terrible.
+        //else if(mat.data[i] > -1 && mat.data[i] < 50) toReturn->data[i]=100; //WALL
+       //else toReturn->data[i] = -1; //UNKOWN
+       if(mat.data[i]== 0)
+            toReturn->data[i]=100;
+        else if(toReturn->data[i] != -1)
+            toReturn->data[i]=0;
+
+
+    }
+    return toReturn;
+}
+
+
 void getRelativePose(geometry_msgs::Pose p, geometry_msgs::Pose q, geometry_msgs::Pose &delta, double resolution) {
   
     delta.position.x = round((p.position.x - q.position.x) / resolution);
@@ -74,9 +142,9 @@ void mege_pipeline(bool furious)
 
     std::map<std::string,  multi_master_bridge::MapData>::iterator it;
     geometry_msgs::Pose offset;
-    getRelativePose(global_map.info.origin, local_map->info.origin, offset, local_map->info.resolution);
-    offset.position.x = abs(offset.position.x);
-    offset.position.y = abs(offset.position.y);
+    getRelativePose(local_map->info.origin, global_map.info.origin, offset, local_map->info.resolution);
+    //offset.position.x = abs(offset.position.x);
+    //offset.position.y = abs(offset.position.y);
 
     
     for(int i= 0;i < local_map->info.width ; i++)
@@ -94,9 +162,9 @@ void mege_pipeline(bool furious)
         ROS_INFO("Get relative position");
         getRelativePose(p,my_pose, delta,global_map.info.resolution);
         ROS_INFO("Get map offset");
-        getRelativePose(global_map.info.origin,it->second.map.info.origin,offset,global_map.info.resolution);
-        offset.position.x = abs(offset.position.x);
-        offset.position.y = abs(offset.position.y);
+        getRelativePose(it->second.map.info.origin,global_map.info.origin,offset,global_map.info.resolution);
+        //offset.position.x = abs(offset.position.x);
+        //offset.position.y = abs(offset.position.y);
         ROS_INFO("merging");
         greedyMerging(round(delta.position.x), round(delta.position.y),offset.position.x,offset.position.y, it->second.map,furious);
 
@@ -104,124 +172,209 @@ void mege_pipeline(bool furious)
     ros::Time now = ros::Time::now();
     global_map.info.map_load_time = now;
     global_map.header.stamp = now;
+    
+    // now we process the merged map using openCV
+    // first let inflate it
+    dilate_map(merged_map_inlate_);
+    test_map_pub.publish(global_map);
+    // then convert it to Mat
+    Mat img = mapToMat(&global_map);
+    // extract the map skeleton
+    //cvtColor( img, img, CV_BGR2GRAY );
+    threshold(img,img, 0, 255, THRESH_BINARY_INV);
+    Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+    Mat temp;
+    Mat eroded;
+    Mat element = getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+    bool done;		
+    do
+    {
+        erode(img, eroded, element);
+        dilate(eroded, temp, element); // 
+        subtract(img, temp, temp);
+        bitwise_or(skel, temp, skel);
+        eroded.copyTo(img);
+
+        done = (cv::countNonZero(img) == 0);
+    } while (!done);
+
+    threshold(skel,skel, 127, 255, THRESH_BINARY_INV);
+    // convert the skel back to grid map
+    matToMap(skel, & global_map);    
+    dilate_map(2);
     ROS_INFO("Publishing global map");
     global_map_pub.publish(global_map);
 }
-/*
-int get_visible_zone(multi_master_bridge::MapData* data,const nav_msgs::OccupancyGrid::ConstPtr& msg)
-{
-    int x = -1, y = -1,x1 = -1, y1 = -1, i,j;
-    // find the bounding box for the updated zone
-    for(i = 0; i <msg->info.width;i++)
-        for(j = 0; j < msg->info.height;j++)
-        {
-            if(msg->data[i+j* msg->info.width]  != UNKNOWN )
-            {
-                x = i;
-                goto findy;
-            }
-        }
-    findy:
-    if(x == -1) goto end;
-    for(i = 0; i <msg->info.height;i++)
-        for(j = 0; j < msg->info.width;j++)
-        {
-            if(msg->data[j+i* msg->info.width] != UNKNOWN)
-            {
-                y = i;
-                goto findw;
-            }
-        }
-    
-    findw:
-    for(i = msg->info.width -1; i>=0;i--)
-        for(j = 0; j < msg->info.height;j++)
-        {
-            if(msg->data[i+j* msg->info.width]  != UNKNOWN)
-            {
-                x1 = i;
-                goto findh;
-            }
-        }
-    findh:
-     for(i = msg->info.height - 1; i >= 0;i--)
-        for(j = 0; j < msg->info.width;j++)
-        {
-            if(msg->data[j+i* msg->info.width] != UNKNOWN)
-            {
-                y1 = i;
-                goto end;
-            }
-        }
-    end:
-    if(x == -1 || y == -1 || x1 == -1 || y1 == -1)
-    {
-        ROS_INFO("No update found");
-        return 0;
-    }
-    // new map data
-    int w = x1 - x;
-    int h = y1 - y;
-    data->x = x;
-    data->y = y;
-    data->map.header = msg->header;
-    data->map.info = msg->info;
-    data->map.info.width = w;
-    data->map.info.height = h;
-     ROS_INFO("update zone (%d,%d) (%d,%d)",x, y,w,h);
-    data->map.data.resize(w*h,UNKNOWN);
-    // copy the update zone to the update map
-    for(i=0; i < w;i++)
-        for(j = 0; j < h; j++)
-            data->map.data[i+j*w] = msg->data[ x + i + (j+y)*msg->info.width ];
-    return 1;
-}
-*/
+
 void resolve_mapsize(geometry_msgs::Point theirpose,const nav_msgs::OccupancyGrid msg)
 {
-    double x,y;
-    int ow,oh,w,h;
+    double minx, miny, maxx, maxy;
+    double tx, ty, lx, ly;
     geometry_msgs::Point  delta;
 
-    delta.x = my_pose.position.x - theirpose.x;
-    delta.y = my_pose.position.y - theirpose.y;
+    delta.x = theirpose.x - my_pose.position.x;
+    delta.y = theirpose.y - my_pose.position.y;
+    tx = msg.info.origin.position.x + delta.x;
+    ty = msg.info.origin.position.y + delta.y;
 
-    // max w and max h
-    w = (int)global_map.info.width  ;
-    h = (int)global_map.info.height ;
-    ow = (int)msg.info.width + round(fabs(delta.x/ msg.info.resolution));
-    oh = (int)msg.info.height + round(fabs(delta.y/ msg.info.resolution));
-    
-    if(delta.x < 0) delta.x = 0.0;
-    if(delta.y < 0) delta.y = 0.0;
-   
-       
-    // min x and min y
-    x = msg.info.origin.position.x - delta.x ;
-    y = msg.info.origin.position.y - delta.y ;
+    minx =  global_map.info.origin.position.x < tx ?  global_map.info.origin.position.x: tx;
+    miny = global_map.info.origin.position.y < ty ? global_map.info.origin.position.y : ty;
 
-    if(x < global_map.info.origin.position.x)  
-    {
-        double dx = global_map.info.origin.position.x - x;
-        ow =  (int)msg.info.width;
-        w += round(dx/ msg.info.resolution);
-        global_map.info.origin.position.x = x;   
-    }
-    if(y <  global_map.info.origin.position.y) {
-        double dy =  global_map.info.origin.position.y - y;
-        global_map.info.origin.position.y = y;
-        oh = (int)msg.info.height;
-        h += round(dy/ msg.info.resolution);
-        //h = h ;
-    }
-    
-    w = w>ow?w:ow;
-    h = oh>h?oh:h;
+    tx = (double)msg.info.width*msg.info.resolution - fabs(msg.info.origin.position.x);
+    tx = tx + delta.x;
 
-    global_map.info.width = w ;
-    global_map.info.height = h ;
-    
+    ty = (double)msg.info.height*msg.info.resolution - fabs(msg.info.origin.position.y);
+    ty = ty + delta.y;
+
+    lx = (double)global_map.info.width*global_map.info.resolution - fabs(global_map.info.origin.position.x);
+    ly = (double)global_map.info.height*global_map.info.resolution - fabs(global_map.info.origin.position.y);
+
+    maxx = lx > tx ? lx : tx;
+    maxy = ly > ty ? ly : ty;
+
+    global_map.info.width = round( (double)(maxx - minx)/global_map.info.resolution ) ;
+    global_map.info.height = round( (double)(maxy - miny)/global_map.info.resolution ) ;
+    global_map.info.origin.position.x = minx;
+    global_map.info.origin.position.y = miny;
 }
+
+void dilate_map(int k)
+{
+    //nav_msgs::OccupancyGridPtr mhmap;
+    //mhmap.reset(new nav_msgs::OccupancyGrid(global_map));
+    int matrix[global_map.info.height*global_map.info.width];
+    // traverse from top left to bottom right
+    for (int i=0; i< global_map.info.height; i++){
+        for (int j=0; j< global_map.info.width; j++){
+            if (global_map.data[j+i* global_map.info.width] == 100){
+                // first pass and pixel was on, it gets a zero
+                matrix[j+i* global_map.info.width] = 0;
+            }else {
+                // pixel was off
+                // It is at most the sum of the lengths of the array
+                // away from a pixel that is on
+                matrix[j+i* global_map.info.width] = global_map.info.width +  global_map.info.height;
+                // or one more than the pixel to the north
+                if (i>0) 
+                {
+                    int minv = matrix[j+i* global_map.info.width] > matrix[j+(i-1)* global_map.info.width] + 1 ? matrix[j+(i-1)* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                    matrix[j+i* global_map.info.width] = minv;
+                }
+                // or one more than the pixel to the west
+                if (j>0) 
+                {
+                    int minv = matrix[j+i* global_map.info.width] > matrix[(j-1)+i* global_map.info.width] + 1 ? matrix[(j-1)+i* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                    matrix[j+i* global_map.info.width] = minv;
+                }
+            }
+        }
+    }
+    // traverse from bottom right to top left
+    for (int i=global_map.info.height - 1; i>=0; i--){
+        for (int j=global_map.info.width-1; j>=0; j--){
+            // either what we had on the first pass
+            // or one more than the pixel to the south
+            if (i+1< global_map.info.height)
+            {
+                int minv = matrix[j+i* global_map.info.width] > matrix[j+(i+1)* global_map.info.width] + 1 ? matrix[j+(i+1)* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                matrix[j+i* global_map.info.width] = minv;
+            } 
+            //image[i][j] = Math.min(image[i][j], image[i+1][j]+1);
+            // or one more than the pixel to the east
+            if (j+1< global_map.info.width)
+            {
+                int minv = matrix[j+i* global_map.info.width] > matrix[(j+1)+i* global_map.info.width] + 1 ? matrix[(j+1)+i* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                matrix[j+i* global_map.info.width] = minv;
+            }
+            //image[i][j] = Math.min(image[i][j], image[i][j+1]+1);
+        }
+    }
+    
+    for(int i = 0; i < global_map.info.height*global_map.info.width; i++)
+    {
+        /*if(i % global_map.info.width == 0)
+            printf("\n");
+        printf("%d ", global_map.data[i]);*/
+        if(matrix[i] < k)
+        {
+            global_map.data[i] = 100;
+        }
+        else if(global_map.data[i] == -1)
+            global_map.data[i] = -1;
+        else
+            global_map.data[i] = 0;
+        
+    }
+}
+
+void erode_map(int k)
+{
+   
+    int matrix[global_map.info.height*global_map.info.width];
+    // traverse from top left to bottom right
+    for (int i=0; i< global_map.info.height; i++){
+        for (int j=0; j< global_map.info.width; j++){
+            if (global_map.data[j+i* global_map.info.width] == 0){
+                // first pass and pixel was on, it gets a zero
+                matrix[j+i* global_map.info.width] = 0;
+            }else {
+                // pixel was off
+                // It is at most the sum of the lengths of the array
+                // away from a pixel that is on
+                matrix[j+i* global_map.info.width] = global_map.info.width +  global_map.info.height;
+                // or one more than the pixel to the north
+                if (i>0) 
+                {
+                    int minv = matrix[j+i* global_map.info.width] > matrix[j+(i-1)* global_map.info.width] + 1 ? matrix[j+(i-1)* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                    matrix[j+i* global_map.info.width] = minv;
+                }
+                // or one more than the pixel to the west
+                if (j>0) 
+                {
+                    int minv = matrix[j+i* global_map.info.width] > matrix[(j-1)+i* global_map.info.width] + 1 ? matrix[(j-1)+i* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                    matrix[j+i* global_map.info.width] = minv;
+                }
+            }
+        }
+    }
+    // traverse from bottom right to top left
+    for (int i=global_map.info.height - 1; i>=0; i--){
+        for (int j=global_map.info.width-1; j>=0; j--){
+            // either what we had on the first pass
+            // or one more than the pixel to the south
+            if (i+1< global_map.info.height)
+            {
+                int minv = matrix[j+i* global_map.info.width] > matrix[j+(i+1)* global_map.info.width] + 1 ? matrix[j+(i+1)* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                matrix[j+i* global_map.info.width] = minv;
+            } 
+            //image[i][j] = Math.min(image[i][j], image[i+1][j]+1);
+            // or one more than the pixel to the east
+            if (j+1< global_map.info.width)
+            {
+                int minv = matrix[j+i* global_map.info.width] > matrix[(j+1)+i* global_map.info.width] + 1 ? matrix[(j+1)+i* global_map.info.width] + 1: matrix[j+i* global_map.info.width];
+                matrix[j+i* global_map.info.width] = minv;
+            }
+            //image[i][j] = Math.min(image[i][j], image[i][j+1]+1);
+        }
+    }
+    
+    for(int i = 0; i < global_map.info.height*global_map.info.width; i++)
+    {
+        /*if(i % global_map.info.width == 0)
+            printf("\n");
+        printf("%d ", global_map.data[i]);*/
+        if(matrix[i] < k)
+        {
+            global_map.data[i] = 0;
+        }
+        else if(global_map.data[i] == -1)
+            global_map.data[i] = -1;
+        else
+            global_map.data[i] = 100;
+        
+    }
+}
+
 void register_local_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     ROS_INFO("Local map found");
@@ -232,7 +385,7 @@ void register_local_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     visibledata.map = *msg;
     resolve_mapsize(visibledata.position, *msg);
     map_update_pub.publish(visibledata);
-    local_map.reset(new nav_msgs::OccupancyGrid(*msg)); 
+    local_map.reset(new nav_msgs::OccupancyGrid(*msg));
 }
 
 void register_neighbor_map(const multi_master_bridge::MapData::ConstPtr& msg)
@@ -251,6 +404,7 @@ int main(int argc, char** argv)
     n.param<std::string>("my_map",my_map_, "/map");
     n.param<std::string>("map_update_topic",map_update_, "/map_update");
     n.param<std::string>("merged_map_topic",merged_map_topic, "/global_map");
+    n.param<double>("merged_map_dilation",merged_map_inlate_, 4.0);
     n.param<bool>("furious_merge",furious_merge, false);
     n.param<double>("init_z",my_pose.position.z, 0.0);
 	n.param<double>("init_x",my_pose.position.x, 0.0);
@@ -279,10 +433,13 @@ int main(int argc, char** argv)
     // publisher register
     global_map_pub = n.advertise<nav_msgs::OccupancyGrid>(merged_map_topic, 50, true);
     map_update_pub = n.advertise<multi_master_bridge::MapData>(map_update_, 50, true);
+    test_map_pub = n.advertise<nav_msgs::OccupancyGrid>("/processed_map", 50, true);
+
     ros::Rate r(1);
     while(ros::ok())
     {
         ros::spinOnce();
+        //pb_mege_pipeline();
         mege_pipeline(furious_merge);
         r.sleep();
     }

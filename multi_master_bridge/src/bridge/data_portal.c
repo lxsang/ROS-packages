@@ -169,7 +169,7 @@ int portal_startup(unsigned * port)
 			goto fail;
 		*port = ntohs(name.sin_port);
     }
-	if (listen(sockfd, 100) < 0)
+	if (listen(sockfd, 5000) < 0)
 		goto fail;
 		//error_die("listen");
     return(sockfd);
