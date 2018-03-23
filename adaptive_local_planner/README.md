@@ -1,6 +1,5 @@
 ### Adaptive local planner
-This packages contains two local planners plugins for **move_base**:
-- adaptive_local_planner.cpp/h : uses torob move algorithm as local planner (maintain by Guillaume Lozenguez, adapted by Xuan Sang LE)
+This packages contains a local planner plugin for **move_base**:
 - pf_local_planner.cpp/h : using potential field as local planner
 
 ## Usage
