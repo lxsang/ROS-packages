@@ -2,8 +2,6 @@
   <arg name="world" />
   <param name="/use_sim_time" value="true"/>
 
-  <arg name="configuration_basename" value="turtlebot_urg_lidar_2d.lua" />
-
   <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
 
   <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
