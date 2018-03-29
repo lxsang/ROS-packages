@@ -23,5 +23,6 @@ echo "Setting cartographer_ws"
 # /home/mrsang/cartographer_ws/install_isolated/setup.sh
 
 #roscore -p $PORT &
+# GAZEBO_MASTER_URI=http://$MY_IP:$GPORT
 echo "Gazebo port $GPORT"
-ROS_MASTER_URI=http://$MY_IP:$PORT GAZEBO_MASTER_URI=http://$MY_IP:$GPORT roslaunch multi_robot_sim $command
+ROS_MASTER_URI=http://$MY_IP:$PORT GAZEBO_MASTER_URI=http://$MY_IP:11313 roslaunch multi_robot_sim $command

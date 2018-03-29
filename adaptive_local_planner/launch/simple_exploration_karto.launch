@@ -3,10 +3,6 @@
 <launch>
   <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
-  <!--include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" /-->
-  <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
-
-
    <node pkg="pose_publisher" type="pose_publisher" name="pose_publisher" output="screen">
         <param name="map_frame" value="/map" />
          <param name="base_frame" value="/base_link" />
@@ -29,7 +25,15 @@
     <rosparam command="load" file="$(find slam_karto)/config/mapper_params.yaml" />
   </node>
 
-  <!--used to compute frontiers by   rosrun phrontier_exploration headless phrontier_explorationpackage_extract_frontiers -->
+
+ <!-- joystick -->
+  <node pkg="joy" type="joy_node" name="joy_node">
+    <param name="joy_node/dev" value="/dev/input/js0"/>
+  </node>
+  <include file="$(find turtlebot_teleop)/launch/xbox360_teleop.launch"/>
+
+
+  <!--include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
   <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
     
     <rosparam ns="costmap" subst_value="true">
@@ -67,9 +71,9 @@
       <param name="frontier_tolerance" value="0.05"/>
       <param name="random_frontier" value="false"/>
       <param name="cmd_vel_topic" value="/mobile_base/commands/velocity"/>
-    </node>    
+    </node-->    
   
-  <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/-->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
 
-  <node name="rst_tracking" pkg="gazebo_sim" type="rsload.sh" args="slam_karto" respawn="true" />
+  <!--node name="rst_tracking" pkg="gazebo_sim" type="rsload.sh" args="slam_karto" respawn="true" /-->
 </launch>
