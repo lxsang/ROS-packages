@@ -1,0 +1,28 @@
+<launch>
+  <arg name="world" />
+  <param name="/use_sim_time" value="true"/>
+
+  <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
+
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
+  
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="30.0" />
+  </node>
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/$(arg world).world"/> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 -->
+    <arg name="recording" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+    <node name="rviz" pkg="rviz" type="rviz" />
+    <node name="lines_seg" pkg="dslam" type="line_node" output="screen">
+        <param name="conf_file" value="$(find dslam)/launch/config.lua"/>
+    </node>
+</launch>
