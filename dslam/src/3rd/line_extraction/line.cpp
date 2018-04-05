@@ -48,6 +48,28 @@ const boost::array<double, 2>& Line::getEnd() const
 {
   return end_;
 }
+const boost::array<double, 2>  Line::getCenter() const
+{
+  boost::array<double, 2> point;
+  point[0] = (start_[0] + end_[0])/2.0;
+  point[1] = (start_[1] + end_[1])/2.0;
+  return point;
+}
+const boost::array<double, 2>  Line::getPerpendicular() const {
+  boost::array<double, 2> point;
+  // first convert line to normalized unit vector
+  double dx = end_[0] - start_[0];
+  double dy = end_[1] - start_[1];
+  double mag = sqrt(dx*dx + dy*dy);
+  dx /= mag;
+  dy /= mag;
+
+  // translate the point and get the dot product
+  double lambda = (dx * (- start_[0])) + (dy * (-start_[1]));
+  point[0] = (dx * lambda) + start_[0];
+  point[1] = (dy * lambda) + start_[1];
+  return point;
+}
 
 const std::vector<unsigned int>& Line::getIndices() const
 {
