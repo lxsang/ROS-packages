@@ -23,6 +23,8 @@ public:
   const boost::array<double, 4> &getCovariance() const;
   const boost::array<double, 2> &getEnd() const;
   const std::vector<unsigned int> &getIndices() const;
+  const boost::array<double, 2>  getPerpendicular() const;
+  const boost::array<double, 2>  getCenter() const;
   double getRadius() const;
   const boost::array<double, 2> &getStart() const;
   // Methods for line fitting

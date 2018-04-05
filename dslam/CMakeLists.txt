@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   cmake_modules
 )
+find_package(PCL REQUIRED)
 find_package(Eigen REQUIRED)
 
 ## System dependencies are found with CMake's conventions
@@ -125,7 +126,11 @@ include_directories(
  src
  ${Eigen_INCLUDE_DIRS}
  ${catkin_INCLUDE_DIRS}
+ ${PCL_INCLUDE_DIRS}
 )
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/dslam.cpp
@@ -139,18 +144,23 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_library(line_extraction src/3rd/line_extraction/line.cpp src/3rd/line_extraction/line_extraction.cpp)
-target_link_libraries(line_extraction ${catkin_LIBRARIES})
+add_library(dslam 
+    src/utils/luaconf.cpp 
+    src/utils/ConfValue.cpp 
+    src/3rd/line_extraction/line.cpp 
+    src/3rd/line_extraction/line_extraction.cpp
+    src/localization/ScanMatcher.cpp)
+target_link_libraries(dslam
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
 
-add_library(node_config src/utils/luaconf.cpp src/utils/ConfValue.cpp)
 #add_custom_command(TARGET node_config
 #    PRE_BUILD
 #   /bin/bash src/utils/buildlua.sh
-#)
-target_link_libraries(node_config ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
- 
+#) 
 add_executable(line_node src/nodes/lines_node.cpp)
-target_link_libraries(line_node  node_config line_extraction)
+target_link_libraries(line_node  dslam)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
