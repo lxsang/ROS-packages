@@ -11,62 +11,69 @@ void ScanMatcher::configure(Configuration &cnf)
 
     bearing_std_dev = xline_config.get<double>("bearing_std_dev", 1e-3);
     line_extraction_.setBearingVariance(bearing_std_dev * bearing_std_dev);
-    printf("bearing_std_dev: %f\n", bearing_std_dev);
+    PCL_INFO("bearing_std_dev: %f\n", bearing_std_dev);
 
     range_std_dev = xline_config.get<double>("range_std_dev", 0.02);
     line_extraction_.setRangeVariance(range_std_dev * range_std_dev);
-    printf("range_std_dev: %f\n", range_std_dev);
+    PCL_INFO("range_std_dev: %f\n", range_std_dev);
 
     least_sq_angle_thresh = xline_config.get<double>("least_sq_angle_thresh", 1e-4);
     line_extraction_.setLeastSqAngleThresh(least_sq_angle_thresh);
-    printf("least_sq_angle_thresh: %f\n", least_sq_angle_thresh);
+    PCL_INFO("least_sq_angle_thresh: %f\n", least_sq_angle_thresh);
 
     least_sq_radius_thresh = xline_config.get<double>("least_sq_radius_thresh", 1e-4);
     line_extraction_.setLeastSqRadiusThresh(least_sq_radius_thresh);
-    printf("least_sq_radius_thresh: %f\n", least_sq_radius_thresh);
+    PCL_INFO("least_sq_radius_thresh: %f\n", least_sq_radius_thresh);
 
     max_line_gap = xline_config.get<double>("max_line_gap", 0.4);
     line_extraction_.setMaxLineGap(max_line_gap);
-    printf("max_line_gap: %f\n", max_line_gap);
+    PCL_INFO("max_line_gap: %f\n", max_line_gap);
 
     min_line_length = xline_config.get<double>("min_line_length", 0.5);
     line_extraction_.setMinLineLength(min_line_length);
-    printf("min_line_length: %f\n", min_line_length);
+    PCL_INFO("min_line_length: %f\n", min_line_length);
 
     min_range = xline_config.get<double>("min_range", 0.4);
     line_extraction_.setMinRange(min_range);
-    printf("min_range: %f\n", min_range);
+    PCL_INFO("min_range: %f\n", min_range);
 
     min_split_dist = xline_config.get<double>("min_split_dist", 0.05);
     line_extraction_.setMinSplitDist(min_split_dist);
-    printf("min_split_dist: %f\n", min_split_dist);
+    PCL_INFO("min_split_dist: %f\n", min_split_dist);
 
     outlier_dist = xline_config.get<double>("outlier_dist", 0.05);
     line_extraction_.setOutlierDist(outlier_dist);
-    printf("outlier_dist: %f\n", outlier_dist);
+    PCL_INFO("outlier_dist: %f\n", outlier_dist);
 
     min_line_points = (int)xline_config.get<double>("min_line_points", 9.0);
     line_extraction_.setMinLinePoints(static_cast<unsigned int>(min_line_points));
-    printf("min_line_points: %d\n", min_line_points);
+    PCL_INFO("min_line_points: %d\n", min_line_points);
 
     Configuration icpcnf = cnf.get<Configuration>("icp", Configuration());
     double max_dist, max_iter, epsilon, eufitness;
     max_dist = icpcnf.get<double>("max_distance", 0.05);
-    printf("ICP: max dist %f\n", max_dist);
+    PCL_INFO("ICP: max dist %f\n", max_dist);
     icp.setMaxCorrespondenceDistance(max_dist);
 
     max_iter = icpcnf.get<double>("max_iteration", 50);
-    printf("ICP: max iteration %f\n", max_iter);
+    PCL_INFO("ICP: max iteration %f\n", max_iter);
     icp.setMaximumIterations((int)max_iter);
 
     epsilon = icpcnf.get<double>("tf_epsilon", 1e-6);
-    printf("ICP: tf_epsilon: %f\n", epsilon);
+    PCL_INFO("ICP: tf_epsilon: %f\n", epsilon);
     icp.setTransformationEpsilon(epsilon);
 
     eufitness = icpcnf.get<double>("eu_fitness", 0.5);
-    printf("ICP: the euclidean distance difference epsilon %f\n", eufitness);
+    PCL_INFO("ICP: the euclidean distance difference epsilon %f\n", eufitness);
     icp.setEuclideanFitnessEpsilon(eufitness);
-    printf("*************************************\n");
+
+    sample_dist_ = icpcnf.get<double>("sample_distance", 0.2);
+    PCL_INFO("ICP: The sample distance %f\n", sample_dist_);
+
+    global_frame_ = cnf.get<std::string>("global_frame", "/map");
+    laser_frame_ = cnf.get<std::string>("laser_frame", "/laser_scan");
+    PCL_INFO("Map frame is %s, and laser frame is %s\n", global_frame_.c_str(), laser_frame_.c_str());
+    PCL_INFO("*************************************\n");
 
     //  icp.setRANSACOutlierRejectionThreshold (0.6);
 }
@@ -101,57 +108,59 @@ void ScanMatcher::registerScan(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
     line_extraction_.setRangeData(scan_ranges_doubles);
     nscan_++;
 }
-Eigen::Matrix4f ScanMatcher::match(const void (*callback)(std::vector<Line>&))
+void ScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
 {
-    Eigen::Matrix4f tf;
+    mt.converged = false;
+    mt.fitness = 0.0;
+    mt.tf = Eigen::Matrix4f::Identity();
     // extract the line
     std::vector<Line> lines;
     line_extraction_.extractLines(lines);
-    if(lines.size() == 0) return tf;
+    if(lines.size() == 0) return;
     // convert lines to point cloud
-    if(callback)
-        callback(lines);
+
     if(first_match_) // first registration
     {
-        last_features_ = linesToPointCloud(lines);
+        linesToPointCloud(lines, last_features_);
         //printf("SCAN MATCHER: Regist firts match\n");
         first_match_ = false;
-        return tf;
+        mt.converged = true;
+        return;
     }
-    pcl::PointCloud<pcl::PointXYZ> new_scan = linesToPointCloud(lines);
-    icp.setInputCloud (new_scan.makeShared());
+    pcl::PointCloud<pcl::PointXYZ> new_scan;
+    linesToPointCloud(lines, new_scan);
+    icp.setInputSource (new_scan.makeShared());
     icp.setInputTarget (last_features_.makeShared());
-    pcl::PointCloud<pcl::PointXYZ> new_scan_registered;
-    icp.align(new_scan_registered);
-    last_features_ = new_scan;
-    return icp.getFinalTransformation();
+    pcl::PointCloud<pcl::PointXYZ> aligned_cloud;
+    icp.align(aligned_cloud);
+    if(callback)
+        callback(lines, aligned_cloud);
+    mt.tf = icp.getFinalTransformation();
+    mt.fitness = icp.getFitnessScore();
+    if(icp.hasConverged() ) // && mt.fitness >= sample_dist_ 
+    {
+        mt.converged = true;
+        last_features_ = new_scan;
+        //printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
+    }
+
 }
 
-pcl::PointCloud<pcl::PointXYZ> ScanMatcher::linesToPointCloud(std::vector<Line>& lines)
+void ScanMatcher::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud)
 {
-    pcl::PointCloud<pcl::PointXYZ> cloud;
-    cloud.width = lines.size()*3;
+    //pcl::PointCloud<pcl::PointXYZ> cloud;
+    //cloud.width = lines.size()*3;
     cloud.height = 1;
     cloud.is_dense = true;
-    cloud.points.resize(cloud.width);
-    int i = 0;
+    //cloud.points.resize(cloud.width);
+    int size = 0;
     for (std::vector<Line>::const_iterator cit = lines.begin(); cit != lines.end(); ++cit)
     {
-        boost::array<double, 2> point = cit->getCenter();
-
-        cloud.points[i].x = cit->getStart()[0];
-        cloud.points[i].x = cit->getStart()[1];
-        cloud.points[i].z = 0.0;
-
-        cloud.points[i+1].x = point[0];
-        cloud.points[i+1].x = point[1];
-        cloud.points[i+1].z = 0.0;
-
-        cloud.points[i+2].x = cit->getEnd()[0];
-        cloud.points[i+2].x = cit->getEnd()[1];
-        cloud.points[i+2].z = 0.0;
-        i+=3;
+        std::vector<pcl::PointXYZ> points;
+        cit->asPointCloud(points);
+        size += points.size();
+        cloud.points.insert(cloud.points.end(), points.begin(), points.end());
     }
-    return cloud;
+    cloud.width = cloud.points.size();
 }
 }
