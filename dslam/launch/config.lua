@@ -15,11 +15,14 @@ local config = {
             min_line_points = 9.0
         },
         icp = {
-            max_distance = 0.1, -- 5cm correspondence distance
-            max_iteration = 100, -- maximum number of iterations 
+            max_distance = 0.25, -- 5cm correspondence distance
+            max_iteration = 200, -- maximum number of iterations 
             tf_epsilon = 1e-6, -- transformation epsilon
-            eu_fitness = 1 -- the euclidean distance difference epsilon
-        }
+            eu_fitness = 1, -- the euclidean distance difference epsilon
+            sample_distance = 0.25, -- 30 cm
+        },
+        global_frame = "map",
+        laser_frame = "laser"
     },
     line_seg_topic = "/line_markers",
     frequency = 25

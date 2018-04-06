@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <boost/array.hpp>
+#include <pcl/registration/icp.h>
+#include <pcl/common/projection_matrix.h>
 #include "3rd/line_extraction/utilities.h"
 
 namespace dslam
@@ -29,6 +31,7 @@ public:
   const boost::array<double, 2> &getStart() const;
   // Methods for line fitting
   double distToPoint(unsigned int);
+  void asPointCloud(std::vector<pcl::PointXYZ>& cloud) const;
   void endpointFit();
   void leastSqFit();
   double length() const;

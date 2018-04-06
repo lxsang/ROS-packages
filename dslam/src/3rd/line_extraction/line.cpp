@@ -85,7 +85,28 @@ const boost::array<double, 2>& Line::getStart() const
 {
   return start_;
 }
-
+void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud) const
+{
+  /*cloud.resize(r_data_.xs.size());
+  for(int i = 0; i < r_data_.xs.size(); i++)
+  {
+    cloud[i].x = r_data_.xs[i];
+    cloud[i].y = r_data_.ys[i];
+  }*/
+  // first convert line to normalized unit vector
+  double dx = end_[0] - start_[0];
+  double dy = end_[1] - start_[1];
+  double mag = sqrt(dx*dx + dy*dy);
+  dx /= mag;
+  dy /= mag;
+  int size = r_data_.xs.size();
+  cloud.resize(size);
+  for(int i = 0; i < size ; i++)
+  {
+    cloud[i].x = dx*i*mag/(double)size + start_[0];
+    cloud[i].y = dy*i*mag/(double)size + start_[1];
+  }
+}
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
 ///////////////////////////////////////////////////////////////////////////////
