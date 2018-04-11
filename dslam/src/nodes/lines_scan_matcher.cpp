@@ -21,6 +21,7 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,n
 LineScanMatcher matcher_;
 ros::Publisher marker_publisher_;
 ros::Publisher cloudpublisher_, trajectory_p_;
+geometry_msgs::Point point_;
 //message_filters::Subscriber scan_subscriber_, imu_subscriber_;
 geometry_msgs::PoseArray estimated_poses_;
 Eigen::Matrix4f  current_tf;
@@ -94,6 +95,11 @@ void publish_tranform(const geometry_msgs::Pose& pose)
   transform.setRotation(q);
   br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),map_frame, robot_base_frame));
 }
+double dist(geometry_msgs::Point from, geometry_msgs::Point to)
+{
+    // Euclidiant dist between a point and the robot
+    return sqrt(pow(to.x - from.x, 2) + pow(to.y - from.y, 2));
+}
 void run()
 {
     // Extract the lines
@@ -123,16 +129,27 @@ void run()
     pose.orientation.y = mt.rot.y();
     pose.orientation.z = mt.rot.z();
     pose.orientation.w = mt.rot.w();
-    estimated_poses_.poses.push_back(pose);
-    estimated_poses_.header.frame_id = map_frame;
-    estimated_poses_.header.stamp = ros::Time::now();
-    trajectory_p_.publish(estimated_poses_);
+
+    double di = dist(point_, pose.position);
+    if(di > 0.2)
+    {
+      estimated_poses_.poses.push_back(pose);
+      estimated_poses_.header.frame_id = map_frame;
+      estimated_poses_.header.stamp = ros::Time::now();
+      trajectory_p_.publish(estimated_poses_);
+      point_ = pose.position;
+    }
+    
+    publish_tranform(pose);
 }
 
 int main(int argc, char **argv)
 {
   current_tf = Eigen::Matrix4f::Identity();
   current_p(3) = 1.0;
+  point_.x = 0.0;
+  point_.y = 0.0;
+  point_.z = 0.0;
   std::cout << "Current tf is " << current_tf << std::endl;
     if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
     {
@@ -195,8 +212,8 @@ int main(int argc, char **argv)
     while (ros::ok())
     {
         ros::spinOnce();
-        if(estimated_poses_.poses.size() > 0)
-          publish_tranform(estimated_poses_.poses.back());
+        //if(estimated_poses_.poses.size() > 0)
+        //  publish_tranform(estimated_poses_.poses.back());
         //rate.sleep();
     }
     return 0;
