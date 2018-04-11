@@ -9,6 +9,9 @@ LineScanMatcher::LineScanMatcher(){
     tf_ok_=false;
     last_features_.orientation= Eigen::Quaterniond::Identity();
     yaw=0.0;
+    last_know_position_(0) = 0.0;
+    last_know_position_(1) = 0.0;
+    last_know_position_(2) = 0.0;
 }
 void LineScanMatcher::configure(Configuration &cnf)
 {
@@ -85,21 +88,22 @@ void LineScanMatcher::configure(Configuration &cnf)
     global_frame_ = cnf.get<std::string>("global_frame", "/map");
     laser_frame_ = cnf.get<std::string>("laser_frame", "/laser_scan");
     robot_base_frame_ = cnf.get<std::string>("robot_base", "base_link");
+    odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
     PCL_INFO("Map frame is %s, robot frame is %s, and laser frame is %s\n", global_frame_.c_str(), robot_base_frame_.c_str() ,laser_frame_.c_str());
     PCL_INFO("*************************************\n");
 
     //icp.setRANSACOutlierRejectionThreshold (0.06); // TODO
 }
 
-void LineScanMatcher::cacheData(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
+void LineScanMatcher::cacheData(sensor_msgs::LaserScan &scan_msg)
 {
     std::vector<double> bearings, cos_bearings, sin_bearings;
     std::vector<unsigned int> indices;
     const std::size_t num_measurements = std::ceil(
-        (scan_msg->angle_max - scan_msg->angle_min) / scan_msg->angle_increment);
+        (scan_msg.angle_max - scan_msg.angle_min) / scan_msg.angle_increment);
     for (std::size_t i = 0; i < num_measurements; ++i)
     {
-        const double b = scan_msg->angle_min + i * scan_msg->angle_increment;
+        const double b = scan_msg.angle_min + i * scan_msg.angle_increment;
         bearings.push_back(b);
         cos_bearings.push_back(cos(b));
         sin_bearings.push_back(sin(b));
@@ -109,13 +113,13 @@ void LineScanMatcher::cacheData(const sensor_msgs::LaserScan::ConstPtr &scan_msg
     line_extraction_.setCachedData(bearings, cos_bearings, sin_bearings, indices);
     //ROS_DEBUG("Data has been cached.");
 }
-void LineScanMatcher::registerScan(const sensor_msgs::LaserScan::ConstPtr &scan_msg, const nav_msgs::Odometry::ConstPtr& odom)
+void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom)
 {
     Eigen::Quaterniond q;
-    q.x() = odom->pose.pose.orientation.x;
-    q.y() = odom->pose.pose.orientation.y;
-    q.z() = odom->pose.pose.orientation.z;
-    q.w() = odom->pose.pose.orientation.w;
+    q.x() = odom.pose.pose.orientation.x;
+    q.y() = odom.pose.pose.orientation.y;
+    q.z() = odom.pose.pose.orientation.z;
+    q.w() = odom.pose.pose.orientation.w;
     if(nscan_ == 0)
     {
         //printf("SCAN MATCHER: First scan \n");
@@ -132,10 +136,10 @@ void LineScanMatcher::registerScan(const sensor_msgs::LaserScan::ConstPtr &scan_
         
     }
     nscan_++;
-    current_feature_.position(0) = odom->pose.pose.position.x;
-    current_feature_.position(1) = odom->pose.pose.position.y;
-    current_feature_.position(2) = odom->pose.pose.position.z;
-    std::vector<double> scan_ranges_doubles(scan_msg->ranges.begin(), scan_msg->ranges.end());
+    current_feature_.position(0) = odom.pose.pose.position.x;
+    current_feature_.position(1) = odom.pose.pose.position.y;
+    current_feature_.position(2) = odom.pose.pose.position.z;
+    std::vector<double> scan_ranges_doubles(scan_msg.ranges.begin(), scan_msg.ranges.end());
     line_extraction_.setRangeData(scan_ranges_doubles);
     
 }
@@ -166,10 +170,10 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
     mt.converged = false;
     mt.fitness = 0.0;
     mt.rot = Eigen::Quaterniond::Identity();
-    mt.tl(0) = 0.0;
-    mt.tl(1) = 0.0;
-    mt.tl(2) = 0.0;
-    mt.tl(3) = 1.0;
+    //mt.tl(0) = 0.0;
+    //mt.tl(1) = 0.0;
+    //mt.tl(2) = 0.0;
+    //mt.tl(3) = 1.0;
     // extract the line
     try
     {
@@ -215,15 +219,15 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
         R4(3,3) = 1.0;
         */
         Eigen::Matrix4f _tf = icp.getFinalTransformation();
-
+        last_know_position_ += offset;
         
         //if(fabs(offset(0))> translation_tolerance_)
         //mt.tl = _tf*mt.tl;
-        mt.tl(0) = offset(0);
+        //mt.tl(0) = offset(0);
         //if(fabs(offset(1))> translation_tolerance_)
-        mt.tl(1) = offset(1);
+        //mt.tl(1) = offset(1);
         //if(fabs(offset(2))> translation_tolerance_)
-        mt.tl(2) = offset(2);
+        //mt.tl(2) = offset(2);
 
         //mt.tl = _tf*mt.tl;
         //if(fabs(mt.tl(0)) < translation_tolerance_) mt.tl(0) = 0.0;
@@ -240,24 +244,37 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
         //mt.tl = M*mt.tl;
         last_features_ = current_feature_;
         mt.fitness = icp.getFitnessScore();
+        Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
         if(icp.hasConverged() && mt.fitness < sample_dist_)
         {
             Eigen::Matrix3d rot;
             for(int i = 0; i < 3; i ++)
                 for(int j = 0; j < 3; j ++)
                 rot(i,j) = _tf(i,j);
-            Eigen::Quaterniond q(rot);
+            q = rot;
             //double y = rot.eulerAngles(0,1,2)[2]/2.0;
             mt.rot = mt.rot*q;
 
             //mt.tl = _tf*mt.tl;
-            mt.tl(0) = (mt.tl(0) + _tf(0,3));
-            mt.tl(1) = (mt.tl(1) + _tf(1,3));
-            mt.tl(2) = (mt.tl(2) + _tf(2,3));
+            last_know_position_(0) += _tf(0,3);
+            last_know_position_(1) += _tf(1,3);
+            last_know_position_(2) += _tf(2,3);
 
             mt.converged = true;
             printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
         }
+        mt.position = last_know_position_;
+        
+        //publishTranform(mt.rot);
+        static tf::TransformBroadcaster tf_br_;
+        tf::Transform transform;
+        transform.setOrigin( tf::Vector3(last_know_position_(0) - current_feature_.position(0), 
+        last_know_position_(1) - current_feature_.position(1), 
+        last_know_position_(2) - current_feature_.position(2)));
+        tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
+        //q.setRPY(0, 0, msg->theta);
+        transform.setRotation(qad);
+        tf_br_.sendTransform(tf::StampedTransform(transform, ros::Time::now(),global_frame_, odom_frame_));
     }
     catch (tf::TransformException ex)
     {

@@ -13,15 +13,23 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Imu.h>
 #include <message_filters/subscriber.h>
+#include <boost/thread/thread.hpp>
+#include <queue>
 using namespace dslam;
 
 
-typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,nav_msgs::Odometry> NoCloudSyncPolicy;
+typedef struct{
+  sensor_msgs::LaserScan scan;
+  nav_msgs::Odometry odom;
+} sensor_data_t;
 
+typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,nav_msgs::Odometry> NoCloudSyncPolicy;
+std::queue<sensor_data_t> data_queue;
 LineScanMatcher matcher_;
 ros::Publisher marker_publisher_;
 ros::Publisher cloudpublisher_, trajectory_p_;
 geometry_msgs::Point point_;
+geometry_msgs::Pose pose;
 //message_filters::Subscriber scan_subscriber_, imu_subscriber_;
 geometry_msgs::PoseArray estimated_poses_;
 Eigen::Matrix4f  current_tf;
@@ -34,8 +42,10 @@ void run();
 void sensorCallback(const sensor_msgs::LaserScanConstPtr &scan_msg, const nav_msgs::OdometryConstPtr& odom)
 {
   //ROS_DEBUG("Data found");
-  matcher_.registerScan(scan_msg, odom);
-  run();
+  sensor_data_t d;
+  d.scan = *scan_msg;
+  d.odom = *odom;
+  data_queue.push(d);
 }
 
 void populateMarkerMsg(const std::vector<Line> &lines, 
@@ -85,16 +95,6 @@ const void callback(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cl
   cloudpublisher_.publish(pcloud);
 }
 
-void publish_tranform(const geometry_msgs::Pose& pose)
-{
-  static tf::TransformBroadcaster br;
-  tf::Transform transform;
-  transform.setOrigin( tf::Vector3(pose.position.x, pose.position.y, pose.position.z) );
-  tf::Quaternion q(pose.orientation.x, pose.orientation.y,pose.orientation.z,pose.orientation.w);
-  //q.setRPY(0, 0, msg->theta);
-  transform.setRotation(q);
-  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),map_frame, robot_base_frame));
-}
 double dist(geometry_msgs::Point from, geometry_msgs::Point to)
 {
     // Euclidiant dist between a point and the robot
@@ -102,45 +102,49 @@ double dist(geometry_msgs::Point from, geometry_msgs::Point to)
 }
 void run()
 {
-    // Extract the lines
-    icp_tf_t mt;
-    matcher_.match(mt, callback);
-    
-    ROS_DEBUG("Canculate point");
-    std::cout<<"tl is" << std::endl << mt.tl << std::endl;
-    //current_tf = mt.tf*current_tf;
-
-    //current_p(0) =  current_tf(0,3);
-    //current_p(1) =  current_tf(1,3);
-    //current_p(2) =  current_tf(2,3);
-    //if(mt.tl(0) > 0.01 || mt.tl(1) > 0.01)
-    current_p += mt.tl;
-    //current_p(3) = 1.0;
-    //current_p = mt.tf*current_p;
-
-
-    std::cout << "Point is " << current_p << std::endl;
-    std::cout << "Rotation is " << mt.rot.x() << " " << mt.rot.y() << " " << mt.rot.z() << " " << mt.rot.w() << std::endl;
-    geometry_msgs::Pose pose;
-    pose.position.x = current_p(0); // - offset_.x();
-    pose.position.y = current_p(1); // - offset_.y();
-    pose.position.z = current_p(2);
-    pose.orientation.x = mt.rot.x();
-    pose.orientation.y = mt.rot.y();
-    pose.orientation.z = mt.rot.z();
-    pose.orientation.w = mt.rot.w();
-
-    double di = dist(point_, pose.position);
-    if(di > 0.2)
+    while (ros::ok())
     {
-      estimated_poses_.poses.push_back(pose);
-      estimated_poses_.header.frame_id = map_frame;
-      estimated_poses_.header.stamp = ros::Time::now();
-      trajectory_p_.publish(estimated_poses_);
-      point_ = pose.position;
-    }
-    
-    publish_tranform(pose);
+      // Extract the lines
+      icp_tf_t mt;
+      if(data_queue.empty()) continue;
+      sensor_data_t data = data_queue.front();
+      data_queue.pop();
+      matcher_.registerScan(data.scan, data.odom);
+      matcher_.match(mt, callback);
+      
+      ROS_DEBUG("Canculate point");
+      //std::cout<<"tl is" << std::endl << mt.tl << std::endl;
+      //current_tf = mt.tf*current_tf;
+
+      //current_p(0) =  current_tf(0,3);
+      //current_p(1) =  current_tf(1,3);
+      //current_p(2) =  current_tf(2,3);
+      //if(mt.tl(0) > 0.01 || mt.tl(1) > 0.01)
+      //current_p += mt.tl;
+      //current_p(3) = 1.0;
+      //current_p = mt.tf*current_p;
+
+
+      std::cout << "Point is " << mt.position << std::endl;
+      std::cout << "Rotation is " << mt.rot.x() << " " << mt.rot.y() << " " << mt.rot.z() << " " << mt.rot.w() << std::endl;
+      pose.position.x = mt.position(0); // - offset_.x();
+      pose.position.y = mt.position(1); // - offset_.y();
+      pose.position.z = mt.position(2);
+      pose.orientation.x = mt.rot.x();
+      pose.orientation.y = mt.rot.y();
+      pose.orientation.z = mt.rot.z();
+      pose.orientation.w = mt.rot.w();
+
+      double di = dist(point_, pose.position);
+      if(di > 0.2)
+      {
+        estimated_poses_.poses.push_back(pose);
+        estimated_poses_.header.frame_id = map_frame;
+        estimated_poses_.header.stamp = ros::Time::now();
+        trajectory_p_.publish(estimated_poses_);
+        point_ = pose.position;
+      }
+  }
 }
 
 int main(int argc, char **argv)
@@ -184,7 +188,7 @@ int main(int argc, char **argv)
     //scan_subscriber_ = nh_local.subscribe(scan_topic, 1, &laserScanCallback);
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_subscriber_(nh_local, scan_topic, 1);
     message_filters::Subscriber<nav_msgs::Odometry> odom_subscriber_(nh_local,odom_topic, 1);
-    message_filters::Synchronizer<NoCloudSyncPolicy> sync(NoCloudSyncPolicy(100),scan_subscriber_,odom_subscriber_);
+    message_filters::Synchronizer<NoCloudSyncPolicy> sync(NoCloudSyncPolicy(5),scan_subscriber_,odom_subscriber_);
     sync.registerCallback(boost::bind(&sensorCallback, _1, _2));
     
     
@@ -197,7 +201,6 @@ int main(int argc, char **argv)
     tf::TransformListener* listener = new tf::TransformListener();
     matcher_.setTF(listener);
 
-    geometry_msgs::Pose pose;
     pose.position.x = 0.0; // - offset_.x();
     pose.position.y = 0.0; // - offset_.y();
     pose.position.z = 0.0;
@@ -209,12 +212,15 @@ int main(int argc, char **argv)
     estimated_poses_.header.frame_id = map_frame;
     estimated_poses_.header.stamp = ros::Time::now();
 
+    boost::thread t1(&run);
+    //t1.join();
+
     while (ros::ok())
     {
         ros::spinOnce();
         //if(estimated_poses_.poses.size() > 0)
         //  publish_tranform(estimated_poses_.poses.back());
-        //rate.sleep();
+        rate.sleep();
     }
     return 0;
 }
