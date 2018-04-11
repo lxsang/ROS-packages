@@ -203,7 +203,7 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
         icp.setInputTarget (aligned_feature.makeShared());
         icp.align(aligned_cloud);
         if(callback)
-            callback(lines, aligned_feature);
+            callback(lines, aligned_cloud);
         //Eigen::Matrix3d R3 = orientation_.toRotationMatrix();
         /*Eigen::Matrix4f R4;
         for(int i = 0; i < 2; i++)
@@ -256,7 +256,7 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
             mt.tl(2) = (mt.tl(2) + _tf(2,3));
 
             mt.converged = true;
-            //printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
+            printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
         }
     }
     catch (tf::TransformException ex)
