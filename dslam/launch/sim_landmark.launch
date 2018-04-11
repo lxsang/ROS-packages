@@ -9,15 +9,20 @@
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
     <param name="publish_frequency" type="double" value="30.0" />
   </node>
-
+  <!--node name="flat_world_imu_node" pkg="cartographer_turtlebot"
+      type="cartographer_flat_world_imu_node" output="screen">
+    <remap from="imu_in" to="/mobile_base/sensors/imu_data_raw" />
+    <remap from="imu_out" to="/imu" />
+  </node-->
+  
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
 
-  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+  <include file="$(find dslam)/launch/empty_world.launch">
     <arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/$(arg world).world"/> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="gui" value="true"/>
-    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 -->
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 launch-prefix="valgrind"-->
     <arg name="recording" value="false"/>
     <arg name="debug" value="false"/>
   </include>

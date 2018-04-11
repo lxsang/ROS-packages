@@ -146,10 +146,13 @@ add_definitions(${PCL_DEFINITIONS})
 ## The recommended prefix ensures that target names across packages don't collide
 add_library(dslam 
     src/utils/luaconf.cpp 
-    src/utils/ConfValue.cpp 
+    src/utils/ConfValue.cpp
+    #src/3rd/laser_geometry/laser_geometry.cpp 
     src/3rd/line_extraction/line.cpp 
     src/3rd/line_extraction/line_extraction.cpp
-    src/localization/ScanMatcher.cpp)
+    src/localization/LineScanMatcher.cpp
+    #src/localization/PointCloudScanMatcher.cpp
+    )
 target_link_libraries(dslam
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
@@ -159,8 +162,12 @@ target_link_libraries(dslam
 #    PRE_BUILD
 #   /bin/bash src/utils/buildlua.sh
 #) 
-add_executable(line_node src/nodes/lines_node.cpp)
+add_executable(line_node src/nodes/lines_scan_matcher.cpp)
 target_link_libraries(line_node  dslam)
+
+#add_executable(pc_node src/nodes/pc_scan_matcher.cpp)
+#target_link_libraries(pc_node  dslam)
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use

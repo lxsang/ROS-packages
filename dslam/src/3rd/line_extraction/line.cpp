@@ -85,27 +85,54 @@ const boost::array<double, 2>& Line::getStart() const
 {
   return start_;
 }
-void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud) const
+void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform& transform, int size) const
 {
-  /*cloud.resize(r_data_.xs.size());
-  for(int i = 0; i < r_data_.xs.size(); i++)
-  {
-    cloud[i].x = r_data_.xs[i];
-    cloud[i].y = r_data_.ys[i];
-  }*/
-  // first convert line to normalized unit vector
-  double dx = end_[0] - start_[0];
-  double dy = end_[1] - start_[1];
+  cloud.resize(size);
+  tf::Vector3 nend, nstart;
+  nend.setX(end_[0]);
+  nend.setY(end_[1]);
+  nstart.setX(start_[0]);
+  nstart.setY(start_[1]);
+  nend = transform*nend;
+  nstart = transform*nstart;
+
+  //nend.setX(nend.x() - transform.getOrigin().getX());
+  //nend.setY(nend.y() - transform.getOrigin().getY());
+
+  //nstart.setX(nstart.x() - transform.getOrigin().getX());
+  //nstart.setY(nstart.y() - transform.getOrigin().getY());
+
+  double dx = nend.x() - nstart.x();
+  double dy = nend.y() - nstart.y();
   double mag = sqrt(dx*dx + dy*dy);
   dx /= mag;
   dy /= mag;
-  int size = r_data_.xs.size();
+  //int size = r_data_.xs.size()/scale;
   cloud.resize(size);
   for(int i = 0; i < size ; i++)
   {
-    cloud[i].x = dx*i*mag/(double)size + start_[0];
-    cloud[i].y = dy*i*mag/(double)size + start_[1];
+    cloud[i].x = dx*i*mag/(double)size + nstart.x();
+    cloud[i].y = dy*i*mag/(double)size + nstart.y();
   }
+  /*cloud.resize(3);
+  tf::Vector3 landmark;
+  landmark.setX(end_[0]);
+  landmark.setY(end_[1]);
+  landmark = transform*landmark;
+  cloud[0].x = landmark.x();
+  cloud[0].y = landmark.y();
+
+  landmark.setX(start_[0]);
+  landmark.setY(start_[1]);
+  landmark = transform*landmark;
+  cloud[1].x = landmark.x();
+  cloud[1].y = landmark.y();
+
+  landmark.setX(getPerpendicular()[0]);
+  landmark.setY(getPerpendicular()[1]);
+  landmark = transform*landmark;
+  cloud[2].x = landmark.x();
+  cloud[2].y = landmark.y();*/
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
