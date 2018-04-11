@@ -20,18 +20,19 @@ local config = {
             max_range = 8.0 --m
         },
         icp = {
-            max_distance = 0.04, -- 5cm correspondence distance
+            max_distance = 0.05, -- 5cm correspondence distance
             max_iteration = 200, -- maximum number of iterations 
             tf_epsilon = 1e-6, -- transformation epsilon
             eu_fitness = 0.5, -- the euclidean distance difference epsilon
-            sample_distance = 0.3, -- 30 cm
+            sample_distance = 0.5, -- 30 cm
             translation_tolerance = 1e-6
         },
         global_frame = "map",
         laser_frame = "laser",
-        robot_base = "base_footprint"
+        robot_base = "base_footprint",
+        odom_frame = "odom"
     },
     line_seg_topic = "/line_markers",
-    frequency = 10
+    frequency = 25
 }
 return config
