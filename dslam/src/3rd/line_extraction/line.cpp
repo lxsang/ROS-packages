@@ -113,6 +113,7 @@ void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&
   {
     cloud[i].x = dx*i*mag/(double)size + nstart.x();
     cloud[i].y = dy*i*mag/(double)size + nstart.y();
+    cloud[i].z = 0.0;
   }
   /*cloud.resize(3);
   tf::Vector3 landmark;
