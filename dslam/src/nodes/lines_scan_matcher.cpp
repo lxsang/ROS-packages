@@ -105,14 +105,19 @@ void run()
     while (ros::ok())
     {
       // Extract the lines
-      icp_tf_t mt;
       if(data_queue.empty()) continue;
       sensor_data_t data = data_queue.front();
       data_queue.pop();
       matcher_.registerScan(data.scan, data.odom);
-      matcher_.match(mt, callback);
+      matcher_.match(callback);
       
-      ROS_DEBUG("Canculate point");
+      matcher_.getLastKnowPose(pose);
+      estimated_poses_.poses.push_back(pose);
+      estimated_poses_.header.frame_id = map_frame;
+      estimated_poses_.header.stamp = ros::Time::now();
+      trajectory_p_.publish(estimated_poses_);
+      point_ = pose.position;
+      //ROS_DEBUG("Canculate point");
       //std::cout<<"tl is" << std::endl << mt.tl << std::endl;
       //current_tf = mt.tf*current_tf;
 
@@ -125,28 +130,32 @@ void run()
       //current_p = mt.tf*current_p;
 
 
-      std::cout << "Point is " << mt.position << std::endl;
-      std::cout << "Rotation is " << mt.rot.x() << " " << mt.rot.y() << " " << mt.rot.z() << " " << mt.rot.w() << std::endl;
-      pose.position.x = mt.position(0); // - offset_.x();
-      pose.position.y = mt.position(1); // - offset_.y();
-      pose.position.z = mt.position(2);
-      pose.orientation.x = mt.rot.x();
-      pose.orientation.y = mt.rot.y();
-      pose.orientation.z = mt.rot.z();
-      pose.orientation.w = mt.rot.w();
+      //std::cout << "Point is " << mt.position << std::endl;
+      //std::cout << "Rotation is " << mt.rot.x() << " " << mt.rot.y() << " " << mt.rot.z() << " " << mt.rot.w() << std::endl;
+      //pose.position.x = mt.position(0); // - offset_.x();
+      //pose.position.y = mt.position(1); // - offset_.y();
+      //pose.position.z = mt.position(2);
+      //pose.orientation.x = mt.rot.x();
+      //pose.orientation.y = mt.rot.y();
+      //pose.orientation.z = mt.rot.z();
+      //pose.orientation.w = mt.rot.w();
 
-      double di = dist(point_, pose.position);
-      if(di > 0.2)
-      {
-        estimated_poses_.poses.push_back(pose);
-        estimated_poses_.header.frame_id = map_frame;
-        estimated_poses_.header.stamp = ros::Time::now();
-        trajectory_p_.publish(estimated_poses_);
-        point_ = pose.position;
-      }
+      //double di = dist(point_, pose.position);
+      //if(di > 0.2)
+      //{
+        
+      //}
   }
 }
 
+void publish_tranform()
+{
+    //publishTranform(mt.rot);
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    matcher_.getTransform(transform);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),map_frame, "odom"));
+}
 int main(int argc, char **argv)
 {
   current_tf = Eigen::Matrix4f::Identity();
@@ -219,7 +228,7 @@ int main(int argc, char **argv)
     {
         ros::spinOnce();
         //if(estimated_poses_.poses.size() > 0)
-        //  publish_tranform(estimated_poses_.poses.back());
+        publish_tranform();
         rate.sleep();
     }
     return 0;

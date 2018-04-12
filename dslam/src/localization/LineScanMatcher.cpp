@@ -8,10 +8,14 @@ LineScanMatcher::LineScanMatcher(){
     tf_=nullptr;
     tf_ok_=false;
     last_features_.orientation= Eigen::Quaterniond::Identity();
-    yaw=0.0;
-    last_know_position_(0) = 0.0;
-    last_know_position_(1) = 0.0;
-    last_know_position_(2) = 0.0;
+    //yaw=0.0;
+    //last_know_position_(0) = 0.0;
+    //last_know_position_(1) = 0.0;
+    //last_know_position_(2) = 0.0;
+    current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
+    current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
+    current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
+    current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
 }
 void LineScanMatcher::configure(Configuration &cnf)
 {
@@ -80,15 +84,17 @@ void LineScanMatcher::configure(Configuration &cnf)
     PCL_INFO("ICP: the euclidean distance difference epsilon %f\n", eufitness);
     icp.setEuclideanFitnessEpsilon(eufitness);
 
-    sample_dist_ = icpcnf.get<double>("sample_distance", 0.2);
-    PCL_INFO("ICP: The sample distance %f\n", sample_dist_);
+    sample_fitness_ = icpcnf.get<double>("sample_fitness", 0.2);
+    PCL_INFO("ICP: The sample distance %f\n", sample_fitness_);
 
-    translation_tolerance_ = icpcnf.get<double>("translation_tolerance", 1e-6);
+    //translation_tolerance_ = icpcnf.get<double>("translation_tolerance", 1e-6);
 
     global_frame_ = cnf.get<std::string>("global_frame", "/map");
     laser_frame_ = cnf.get<std::string>("laser_frame", "/laser_scan");
     robot_base_frame_ = cnf.get<std::string>("robot_base", "base_link");
-    odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
+    //odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
+    keyframe_sample_linear_ = cnf.get<double>("keyframe_sample_linear", 0.5);
+    keyframe_sample_angular_ = cnf.get<double>("keyframe_sample_angular", 0.5);
     PCL_INFO("Map frame is %s, robot frame is %s, and laser frame is %s\n", global_frame_.c_str(), robot_base_frame_.c_str() ,laser_frame_.c_str());
     PCL_INFO("*************************************\n");
 
@@ -120,19 +126,11 @@ void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::O
     q.y() = odom.pose.pose.orientation.y;
     q.z() = odom.pose.pose.orientation.z;
     q.w() = odom.pose.pose.orientation.w;
+    current_feature_.orientation = q;
     if(nscan_ == 0)
     {
         //printf("SCAN MATCHER: First scan \n");
         cacheData(scan_msg);
-        current_feature_.orientation = q;
-    }
-    else
-    { 
-        current_feature_.orientation = q;
-        auto euler = last_features_.orientation.toRotationMatrix().eulerAngles(0, 1, 2);
-        auto euler1 = q.toRotationMatrix().eulerAngles(0, 1, 2);
-        yaw = euler1[2] - euler[2];
-        //current_feature_.orientation = q;
         
     }
     nscan_++;
@@ -144,12 +142,18 @@ void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::O
     
 }
 
+double LineScanMatcher::getYaw()
+{
+    auto euler = last_features_.orientation.toRotationMatrix().eulerAngles(0, 1, 2);
+    auto euler1 = current_feature_.orientation.toRotationMatrix().eulerAngles(0, 1, 2);
+    return (euler1[2] - euler[2]);
+}
 void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
 {
     Eigen::Matrix3f M;
     M = Eigen::AngleAxisf(0.0, Eigen::Vector3f::UnitX())
         *Eigen::AngleAxisf(0.0, Eigen::Vector3f::UnitY())
-        *Eigen::AngleAxisf(-yaw, Eigen::Vector3f::UnitZ()); 
+        *Eigen::AngleAxisf(-getYaw(), Eigen::Vector3f::UnitZ()); 
     ret.width = last_features_.cloud.width;
     ret.height = last_features_.cloud.height;
     ret.is_dense = last_features_.cloud.is_dense;
@@ -162,18 +166,14 @@ void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
         //Eigen::Vector3d rotatedV = rotatedP.vec();
         ret.points[i].x = v.x() - offset.x();
         ret.points[i].y = v.y() - offset.y();
-        ret.points[i].z = v.z() - offset.z();
+        ret.points[i].z = 0.0;//v.z() - offset.z();
     }
 }
-void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
+void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
 {
-    mt.converged = false;
-    mt.fitness = 0.0;
-    mt.rot = Eigen::Quaterniond::Identity();
-    //mt.tl(0) = 0.0;
-    //mt.tl(1) = 0.0;
-    //mt.tl(2) = 0.0;
-    //mt.tl(3) = 1.0;
+    //mt.converged = false;
+    //mt.fitness = 0.0;
+    //mt.rot = Eigen::Quaterniond::Identity();
     // extract the line
     try
     {
@@ -196,56 +196,36 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
             last_features_.position = current_feature_.position;
             //printf("SCAN MATCHER: Regist firts match\n");
             first_match_ = false;
-            mt.converged = true;
+            //mt.converged = true;
             return;
         }
         pcl::PointCloud<pcl::PointXYZ> aligned_cloud, aligned_feature;
         linesToPointCloud(lines, current_feature_.cloud, laser2base_);
         icp.setInputSource (current_feature_.cloud.makeShared());
-        Eigen::Vector3d offset = current_feature_.position - last_features_.position;
         alignLastFeature(aligned_feature);
         icp.setInputTarget (aligned_feature.makeShared());
         icp.align(aligned_cloud);
         if(callback)
             callback(lines, aligned_cloud);
-        //Eigen::Matrix3d R3 = orientation_.toRotationMatrix();
-        /*Eigen::Matrix4f R4;
-        for(int i = 0; i < 2; i++)
-            for(int j=0; j< 2; j ++)
-                R4(i,j) = R3(i,j);
-        R4(0,3) = 0.0;
-        R4(1,3) = 0.0;
-        R4(2,3) = 0.0;
-        R4(3,3) = 1.0;
-        */
+        
+        Eigen::Vector3d offset = current_feature_.position - last_features_.position;
+        //offset(2) = 0.0;
         Eigen::Matrix4f _tf = icp.getFinalTransformation();
-        last_know_position_ += offset;
-        
-        //if(fabs(offset(0))> translation_tolerance_)
-        //mt.tl = _tf*mt.tl;
-        //mt.tl(0) = offset(0);
-        //if(fabs(offset(1))> translation_tolerance_)
-        //mt.tl(1) = offset(1);
-        //if(fabs(offset(2))> translation_tolerance_)
-        //mt.tl(2) = offset(2);
+        //last_know_position_ += offset;
+        current_kf_.tf.translation += offset;
 
-        //mt.tl = _tf*mt.tl;
-        //if(fabs(mt.tl(0)) < translation_tolerance_) mt.tl(0) = 0.0;
-        //if(fabs(mt.tl(1)) < translation_tolerance_) mt.tl(1) = 0.0;
-        //if(fabs(mt.tl(2)) < translation_tolerance_) mt.tl(2) = 0.0;
-
-        //p.w() = 0;
-        //p.vec() = mt.tl;
-        
-        
-        mt.rot = current_feature_.orientation;
+        current_kf_.tf.rotation *= Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitX())
+        *Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitY())
+        *Eigen::AngleAxisd(getYaw(), Eigen::Vector3d::UnitZ());
+        //current_kf_.tf.rotation.normalize();
+        //mt.rot = current_feature_.orientation;
         //Eigen::Matrix3d M;
         //M = mt.rot;
         //mt.tl = M*mt.tl;
         last_features_ = current_feature_;
-        mt.fitness = icp.getFitnessScore();
+        //mt.fitness = icp.getFitnessScore();
         Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
-        if(icp.hasConverged() && mt.fitness < sample_dist_)
+        if(icp.hasConverged() && icp.getFitnessScore() < sample_fitness_)
         {
             Eigen::Matrix3d rot;
             for(int i = 0; i < 3; i ++)
@@ -253,28 +233,43 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
                 rot(i,j) = _tf(i,j);
             q = rot;
             //double y = rot.eulerAngles(0,1,2)[2]/2.0;
-            mt.rot = mt.rot*q;
-
+            //mt.rot = mt.rot*q;
+            q.normalize();
+            current_kf_.tf.rotation *= q;
+            //current_kf_.tf.rotation.normalize();
             //mt.tl = _tf*mt.tl;
-            last_know_position_(0) += _tf(0,3);
-            last_know_position_(1) += _tf(1,3);
-            last_know_position_(2) += _tf(2,3);
+            current_kf_.tf.translation(0) += _tf(0,3);
+            current_kf_.tf.translation(1) += _tf(1,3);
+            current_kf_.tf.translation(2) += _tf(2,3);
 
-            mt.converged = true;
+            current_kf_.diff.translation(0) += _tf(0,3);
+            current_kf_.diff.translation(1) += _tf(1,3);
+            current_kf_.diff.translation(2) += _tf(2,3);
+            current_kf_.diff.rotation *= q;
+            //current_kf_.diff.rotation.normalize();
+            //mt.converged = true;
             printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
         }
-        mt.position = last_know_position_;
+        //mt.position = last_know_position_;
         
-        //publishTranform(mt.rot);
-        static tf::TransformBroadcaster tf_br_;
-        tf::Transform transform;
-        transform.setOrigin( tf::Vector3(last_know_position_(0) - current_feature_.position(0), 
-        last_know_position_(1) - current_feature_.position(1), 
-        last_know_position_(2) - current_feature_.position(2)));
-        tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
+        
+        double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
+        double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
+        if(dist >= keyframe_sample_linear_)// || yaw >= keyframe_sample_angular_)
+        {
+            keyframes_.push_back(current_kf_);
+            current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
+            current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
+            current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
+            current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
+        }
+        //transform_.setOrigin( tf::Vector3(last_know_position_(0) - current_feature_.position(0), 
+        //last_know_position_(1) - current_feature_.position(1), 
+        //last_know_position_(2) - current_feature_.position(2)));
+        //tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
         //q.setRPY(0, 0, msg->theta);
-        transform.setRotation(qad);
-        tf_br_.sendTransform(tf::StampedTransform(transform, ros::Time::now(),global_frame_, odom_frame_));
+        //transform_.setRotation(qad);
+        //tf_br_.sendTransform(tf::StampedTransform(transform, ros::Time::now(),global_frame_, odom_frame_));
     }
     catch (tf::TransformException ex)
     {
@@ -283,6 +278,46 @@ void LineScanMatcher::match(icp_tf_t& mt, const void (*callback)(std::vector<Lin
 
 }
 
+void LineScanMatcher::getTransform(tf::Transform& transform)
+{
+    auto it = keyframes_.begin();
+    dslam_tf_t _tf;
+    _tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
+    _tf.rotation = Eigen::Quaterniond::Identity();
+    while(it != keyframes_.end())
+    {
+        _tf.translation += it->diff.translation;
+        _tf.rotation *= it->diff.rotation;
+        //_tf.rotation.normalize();
+        it++;
+    }
+    transform.setOrigin( tf::Vector3(_tf.translation(0),_tf.translation(1),0.0));
+    //tf::Quaternion qad(0.0, 0.0,0.0,1.0);
+    tf::Quaternion qad(_tf.rotation.x(), _tf.rotation.y(),_tf.rotation.z(),_tf.rotation.w());
+    transform.setRotation(qad);
+}
+void LineScanMatcher::getLastKnowPose(geometry_msgs::Pose& pose)
+{
+    auto it = keyframes_.begin();
+    dslam_tf_t _tf;
+    _tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
+    _tf.rotation = Eigen::Quaterniond::Identity();
+    while(it != keyframes_.end())
+    {
+        _tf.translation += it->tf.translation;
+        _tf.rotation *= it->tf.rotation;
+        //_tf.rotation.normalize();
+        it++;
+    }
+    pose.position.x = _tf.translation(0);
+    pose.position.y = _tf.translation(1);
+    pose.position.z = _tf.translation(2);
+
+    pose.orientation.x = _tf.rotation.x();
+    pose.orientation.y = _tf.rotation.y();
+    pose.orientation.z = _tf.rotation.z();
+    pose.orientation.w = _tf.rotation.w();
+}
 void LineScanMatcher::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform& laser2base)
 {
     //pcl::PointCloud<pcl::PointXYZ> cloud;

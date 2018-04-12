@@ -28,6 +28,14 @@ namespace dslam {
         Eigen::Quaterniond orientation;
         Eigen::Vector3d position;
     } feature_t;
+    typedef struct{
+        Eigen::Quaterniond rotation;
+        Eigen::Vector3d translation;
+    } dslam_tf_t;
+    typedef struct{
+        dslam_tf_t tf;  // transformation from last key frame
+        dslam_tf_t diff;// diff between current keyframe and odom
+    } key_frame_t;
     class LineScanMatcher{
 
         public:
@@ -36,8 +44,9 @@ namespace dslam {
             void setTF(tf::TransformListener* tf) {tf_ = tf;}
             void configure(Configuration&);
             void registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom);
-            void match(icp_tf_t&, const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
-            
+            void match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
+            void getTransform(tf::Transform&);
+            void getLastKnowPose(geometry_msgs::Pose& pose);
         private:
             void cacheData(sensor_msgs::LaserScan&);
             void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
@@ -48,16 +57,20 @@ namespace dslam {
             //void getRotation(Eigen::Quaterniond &);
             pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp;
             //pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-            Eigen::Vector3d last_know_position_;
+            //Eigen::Vector3d last_know_position_;
             LineExtraction line_extraction_;
             tf::TransformListener* tf_;
             int nscan_;
             double line_scale_;
             bool first_match_, tf_ok_;
-            double sample_dist_, translation_tolerance_;
-            std::string global_frame_, laser_frame_, robot_base_frame_, odom_frame_;
+            double sample_fitness_;
+            std::string global_frame_, laser_frame_, robot_base_frame_;
+            double keyframe_sample_linear_,keyframe_sample_angular_;
             tf::StampedTransform laser2base_;
-            double yaw;
+
+            std::list<key_frame_t> keyframes_;
+            key_frame_t current_kf_;
+            double getYaw();
     };
 
     class PointCloudScanMatcher{
