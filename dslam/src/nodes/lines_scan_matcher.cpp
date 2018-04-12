@@ -15,6 +15,7 @@
 #include <message_filters/subscriber.h>
 #include <boost/thread/thread.hpp>
 #include <queue>
+#include "mapping/SubmapBuilder.h"
 using namespace dslam;
 
 
@@ -26,10 +27,11 @@ typedef struct{
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,nav_msgs::Odometry> NoCloudSyncPolicy;
 std::queue<sensor_data_t> data_queue;
 LineScanMatcher matcher_;
-ros::Publisher marker_publisher_;
+ros::Publisher marker_publisher_, local_map_pub;
 ros::Publisher cloudpublisher_, trajectory_p_;
 geometry_msgs::Point point_;
 geometry_msgs::Pose pose;
+SubmapBuilder map_builder_;
 //message_filters::Subscriber scan_subscriber_, imu_subscriber_;
 geometry_msgs::PoseArray estimated_poses_;
 Eigen::Matrix4f  current_tf;
@@ -38,6 +40,7 @@ std::string map_frame, laser_frame, robot_base_frame;
 tf::StampedTransform laser2base;
 bool tf_ok_ = false;
 tf::Vector3 offset_;
+nav_msgs::OccupancyGrid local_map_;
 void run();
 void sensorCallback(const sensor_msgs::LaserScanConstPtr &scan_msg, const nav_msgs::OdometryConstPtr& odom)
 {
@@ -116,35 +119,15 @@ void run()
       estimated_poses_.header.frame_id = map_frame;
       estimated_poses_.header.stamp = ros::Time::now();
       trajectory_p_.publish(estimated_poses_);
+      
+      if(!matcher_.keyframes.empty())
+      {
+        map_builder_.fromScan(matcher_.keyframes.back().scan);
+        local_map_pub.publish(map_builder_.getMap());
+      }
+
       point_ = pose.position;
-      //ROS_DEBUG("Canculate point");
-      //std::cout<<"tl is" << std::endl << mt.tl << std::endl;
-      //current_tf = mt.tf*current_tf;
-
-      //current_p(0) =  current_tf(0,3);
-      //current_p(1) =  current_tf(1,3);
-      //current_p(2) =  current_tf(2,3);
-      //if(mt.tl(0) > 0.01 || mt.tl(1) > 0.01)
-      //current_p += mt.tl;
-      //current_p(3) = 1.0;
-      //current_p = mt.tf*current_p;
-
-
-      //std::cout << "Point is " << mt.position << std::endl;
-      //std::cout << "Rotation is " << mt.rot.x() << " " << mt.rot.y() << " " << mt.rot.z() << " " << mt.rot.w() << std::endl;
-      //pose.position.x = mt.position(0); // - offset_.x();
-      //pose.position.y = mt.position(1); // - offset_.y();
-      //pose.position.z = mt.position(2);
-      //pose.orientation.x = mt.rot.x();
-      //pose.orientation.y = mt.rot.y();
-      //pose.orientation.z = mt.rot.z();
-      //pose.orientation.w = mt.rot.w();
-
-      //double di = dist(point_, pose.position);
-      //if(di > 0.2)
-      //{
-        
-      //}
+      
   }
 }
 
@@ -182,6 +165,10 @@ int main(int argc, char **argv)
     nh_local.param<std::string>("conf_file", config_file, "config.lua");
     Configuration config(config_file);
     Configuration localisation = config.get<Configuration>("localisation", Configuration());
+    Configuration mapping = config.get<Configuration>("mapping", Configuration());
+    Configuration local_map = mapping.get<Configuration>("local_map", Configuration());
+    map_builder_.configure(local_map);
+
     map_frame = localisation.get<std::string>("global_frame", "map");
     laser_frame = localisation.get<std::string>("laser_frame", "scan_frame");
     robot_base_frame = localisation.get<std::string>("robot_base", "base_link");
@@ -209,7 +196,7 @@ int main(int argc, char **argv)
     ros::Rate rate(frequency);
     tf::TransformListener* listener = new tf::TransformListener();
     matcher_.setTF(listener);
-
+    local_map_pub = nh_local.advertise<nav_msgs::OccupancyGrid>("/local_map",1,true);
     pose.position.x = 0.0; // - offset_.x();
     pose.position.y = 0.0; // - offset_.y();
     pose.position.z = 0.0;

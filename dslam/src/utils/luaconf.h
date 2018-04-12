@@ -57,7 +57,7 @@ namespace dslam{
             void set(double);
             void set(bool);
             void set(std::map<std::string, ConfValue>*);
-        
+            std::string asString();
         private:
             int type;
             union{
@@ -76,6 +76,7 @@ namespace dslam{
         if ( _config->find(key) == _config->end() ) {
             // not found
             (*_config)[key] = ConfValue(def);
+            printf("===>WARNING: Configuration %s not found. Set to  %s\n", key.c_str(), (*_config)[key].asString().c_str() );
         }
         (*_config)[key].get(value);
         return value;

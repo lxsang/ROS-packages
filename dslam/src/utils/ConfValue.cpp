@@ -75,5 +75,23 @@ namespace dslam{
         _value.m = m;
         type = CONFV_MAP;
     }
-        
+    std::string ConfValue::asString()
+    {
+        switch(type)
+        {
+            case CONFV_STR:
+                return std::string(_value.s); break;
+            case CONFV_NUM:
+                return std::to_string(_value.d); break;
+                break;
+            case CONFV_BOOL:
+                return _value.b?std::string("True"):std::string("False");
+                break;
+            case CONFV_MAP:
+                return std::string("New empty configuration");
+                break;
+            
+            default: break;
+        }
+    }
 }

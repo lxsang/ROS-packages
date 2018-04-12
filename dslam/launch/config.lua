@@ -1,3 +1,4 @@
+local PI = 3.1415926535898
 local config = {
     scan_topic = "/scan",
     keypoint_topic = "keypoints",
@@ -13,7 +14,7 @@ local config = {
             min_range = 0.4,
             min_split_dist = 0.05,
             outlier_dist = 0.06,
-            min_line_points = 15.0,
+            min_line_points = 9.0,
             line_scale = 0.05
         },
         point_cloud_extraction = {
@@ -27,14 +28,25 @@ local config = {
             sample_fitness = 0.5--, -- 30 cm
             --translation_tolerance = 1e-6
         },
-        keyframe_sample_linear = 0.2,
-        keyframe_sample_angular = 0.4,
+        keyframe_sample_linear = 0.5,
+        keyframe_sample_angular = 0.7,
         global_frame = "map",
         laser_frame = "laser",
         robot_base = "base_footprint",
         odom_frame = "odom"
     },
+    mapping = {
+        local_map = {
+            p_occupied_with_observation=0.9,
+            p_occupied_without_observation=0.3,
+            angle_resolution= PI/720.0,
+            large_log_odds=100.0,
+            max_log_odds_for_belief=20.0,
+            max_laser_range = 5.0, -- meter
+            resolution = 0.05
+        }
+    },
     line_seg_topic = "/line_markers",
-    frequency = 10
+    frequency = 15
 }
 return config
