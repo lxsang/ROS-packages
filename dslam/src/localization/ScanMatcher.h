@@ -35,18 +35,21 @@ namespace dslam {
     typedef struct{
         dslam_tf_t tf;  // transformation from last key frame
         dslam_tf_t diff;// diff between current keyframe and odom
+        sensor_msgs::LaserScan scan;
     } key_frame_t;
     class LineScanMatcher{
 
         public:
             LineScanMatcher();
             ~LineScanMatcher(){};
-            void setTF(tf::TransformListener* tf) {tf_ = tf;}
+            void setTF(tf::TransformListener* tf) {tf_ = tf;};
             void configure(Configuration&);
             void registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom);
             void match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
             void getTransform(tf::Transform&);
             void getLastKnowPose(geometry_msgs::Pose& pose);
+
+            std::list<key_frame_t> keyframes;
         private:
             void cacheData(sensor_msgs::LaserScan&);
             void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
@@ -67,10 +70,8 @@ namespace dslam {
             std::string global_frame_, laser_frame_, robot_base_frame_;
             double keyframe_sample_linear_,keyframe_sample_angular_;
             tf::StampedTransform laser2base_;
-
-            std::list<key_frame_t> keyframes_;
             key_frame_t current_kf_;
-            double getYaw();
+            sensor_msgs::LaserScan current_scan_;
     };
 
     class PointCloudScanMatcher{

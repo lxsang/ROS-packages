@@ -152,6 +152,8 @@ add_library(dslam
     src/3rd/line_extraction/line_extraction.cpp
     src/localization/LineScanMatcher.cpp
     #src/localization/PointCloudScanMatcher.cpp
+    src/3rd/raycaster/map_ray_caster.cpp 
+    src/mapping/SubmapBuilder.cpp
     )
 target_link_libraries(dslam
     ${catkin_LIBRARIES}

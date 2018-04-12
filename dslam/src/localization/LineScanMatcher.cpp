@@ -139,21 +139,13 @@ void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::O
     current_feature_.position(2) = odom.pose.pose.position.z;
     std::vector<double> scan_ranges_doubles(scan_msg.ranges.begin(), scan_msg.ranges.end());
     line_extraction_.setRangeData(scan_ranges_doubles);
-    
+    current_scan_ = scan_msg;
 }
 
-double LineScanMatcher::getYaw()
-{
-    auto euler = last_features_.orientation.toRotationMatrix().eulerAngles(0, 1, 2);
-    auto euler1 = current_feature_.orientation.toRotationMatrix().eulerAngles(0, 1, 2);
-    return (euler1[2] - euler[2]);
-}
 void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
 {
-    Eigen::Matrix3f M;
-    M = Eigen::AngleAxisf(0.0, Eigen::Vector3f::UnitX())
-        *Eigen::AngleAxisf(0.0, Eigen::Vector3f::UnitY())
-        *Eigen::AngleAxisf(-getYaw(), Eigen::Vector3f::UnitZ()); 
+    Eigen::Matrix3d M;
+    M = last_features_.orientation*current_feature_.orientation.inverse(); 
     ret.width = last_features_.cloud.width;
     ret.height = last_features_.cloud.height;
     ret.is_dense = last_features_.cloud.is_dense;
@@ -161,7 +153,7 @@ void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
     ret.points.resize(ret.width);
     for(int i = 0; i < last_features_.cloud.width; i++)
     {
-        Eigen::Vector3f v(last_features_.cloud.points[i].x, last_features_.cloud.points[i].y , last_features_.cloud.points[i].z);
+        Eigen::Vector3d v(last_features_.cloud.points[i].x, last_features_.cloud.points[i].y , last_features_.cloud.points[i].z);
         v = M*v;
         //Eigen::Vector3d rotatedV = rotatedP.vec();
         ret.points[i].x = v.x() - offset.x();
@@ -206,7 +198,7 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         icp.setInputTarget (aligned_feature.makeShared());
         icp.align(aligned_cloud);
         if(callback)
-            callback(lines, aligned_cloud);
+            callback(lines, aligned_feature);
         
         Eigen::Vector3d offset = current_feature_.position - last_features_.position;
         //offset(2) = 0.0;
@@ -214,9 +206,7 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         //last_know_position_ += offset;
         current_kf_.tf.translation += offset;
 
-        current_kf_.tf.rotation *= Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitX())
-        *Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitY())
-        *Eigen::AngleAxisd(getYaw(), Eigen::Vector3d::UnitZ());
+        current_kf_.tf.rotation *= current_feature_.orientation*last_features_.orientation.inverse();
         //current_kf_.tf.rotation.normalize();
         //mt.rot = current_feature_.orientation;
         //Eigen::Matrix3d M;
@@ -227,24 +217,23 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
         if(icp.hasConverged() && icp.getFitnessScore() < sample_fitness_)
         {
-            Eigen::Matrix3d rot;
-            for(int i = 0; i < 3; i ++)
-                for(int j = 0; j < 3; j ++)
+            Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+            for(int i = 0; i < 2; i ++)
+                for(int j = 0; j < 2; j ++)
                 rot(i,j) = _tf(i,j);
             q = rot;
             //double y = rot.eulerAngles(0,1,2)[2]/2.0;
             //mt.rot = mt.rot*q;
-            q.normalize();
             current_kf_.tf.rotation *= q;
             //current_kf_.tf.rotation.normalize();
             //mt.tl = _tf*mt.tl;
             current_kf_.tf.translation(0) += _tf(0,3);
             current_kf_.tf.translation(1) += _tf(1,3);
-            current_kf_.tf.translation(2) += _tf(2,3);
+            //current_kf_.tf.translation(2) += _tf(2,3);
 
             current_kf_.diff.translation(0) += _tf(0,3);
             current_kf_.diff.translation(1) += _tf(1,3);
-            current_kf_.diff.translation(2) += _tf(2,3);
+            //current_kf_.diff.translation(2) += _tf(2,3);
             current_kf_.diff.rotation *= q;
             //current_kf_.diff.rotation.normalize();
             //mt.converged = true;
@@ -255,9 +244,10 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         
         double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
         double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
-        if(dist >= keyframe_sample_linear_)// || yaw >= keyframe_sample_angular_)
+        if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
-            keyframes_.push_back(current_kf_);
+            current_kf_.scan = current_scan_;
+            keyframes.push_back(current_kf_);
             current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
             current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
             current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
@@ -280,17 +270,18 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
 
 void LineScanMatcher::getTransform(tf::Transform& transform)
 {
-    auto it = keyframes_.begin();
+    auto it = keyframes.begin();
     dslam_tf_t _tf;
     _tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
     _tf.rotation = Eigen::Quaterniond::Identity();
-    while(it != keyframes_.end())
+    while(it != keyframes.end())
     {
         _tf.translation += it->diff.translation;
         _tf.rotation *= it->diff.rotation;
         //_tf.rotation.normalize();
         it++;
     }
+    Eigen::Quaterniond inv = _tf.rotation.inverse();
     transform.setOrigin( tf::Vector3(_tf.translation(0),_tf.translation(1),0.0));
     //tf::Quaternion qad(0.0, 0.0,0.0,1.0);
     tf::Quaternion qad(_tf.rotation.x(), _tf.rotation.y(),_tf.rotation.z(),_tf.rotation.w());
@@ -298,11 +289,11 @@ void LineScanMatcher::getTransform(tf::Transform& transform)
 }
 void LineScanMatcher::getLastKnowPose(geometry_msgs::Pose& pose)
 {
-    auto it = keyframes_.begin();
+    auto it = keyframes.begin();
     dslam_tf_t _tf;
     _tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
     _tf.rotation = Eigen::Quaterniond::Identity();
-    while(it != keyframes_.end())
+    while(it != keyframes.end())
     {
         _tf.translation += it->tf.translation;
         _tf.rotation *= it->tf.rotation;
