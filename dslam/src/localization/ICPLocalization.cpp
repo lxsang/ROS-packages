@@ -1,8 +1,8 @@
-#include "ScanMatcher.h"
+#include "ICPLocalization.h"
 
 namespace dslam
 {
-LineScanMatcher::LineScanMatcher(){
+ICPLocalization::ICPLocalization(){
     nscan_ = 0;
     first_match_ = true;
     tf_=nullptr;
@@ -17,7 +17,7 @@ LineScanMatcher::LineScanMatcher(){
     current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
     current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
 }
-void LineScanMatcher::configure(Configuration &cnf)
+void ICPLocalization::configure(Configuration &cnf)
 {
     Configuration xline_config = cnf.get<Configuration>("line_extraction", Configuration());
     double bearing_std_dev, range_std_dev, least_sq_angle_thresh, least_sq_radius_thresh,
@@ -101,7 +101,7 @@ void LineScanMatcher::configure(Configuration &cnf)
     //icp.setRANSACOutlierRejectionThreshold (0.06); // TODO
 }
 
-void LineScanMatcher::cacheData(sensor_msgs::LaserScan &scan_msg)
+void ICPLocalization::cacheData(sensor_msgs::LaserScan &scan_msg)
 {
     std::vector<double> bearings, cos_bearings, sin_bearings;
     std::vector<unsigned int> indices;
@@ -119,7 +119,7 @@ void LineScanMatcher::cacheData(sensor_msgs::LaserScan &scan_msg)
     line_extraction_.setCachedData(bearings, cos_bearings, sin_bearings, indices);
     //ROS_DEBUG("Data has been cached.");
 }
-void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom)
+void ICPLocalization::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom)
 {
     Eigen::Quaterniond q;
     q.x() = odom.pose.pose.orientation.x;
@@ -139,10 +139,10 @@ void LineScanMatcher::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::O
     current_feature_.position(2) = odom.pose.pose.position.z;
     std::vector<double> scan_ranges_doubles(scan_msg.ranges.begin(), scan_msg.ranges.end());
     line_extraction_.setRangeData(scan_ranges_doubles);
-    current_scan_ = scan_msg;
+    current_kf_.scan = scan_msg;
 }
 
-void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
+void ICPLocalization::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
 {
     Eigen::Matrix3d M;
     M = last_features_.orientation*current_feature_.orientation.inverse(); 
@@ -161,7 +161,7 @@ void LineScanMatcher::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
         ret.points[i].z = 0.0;//v.z() - offset.z();
     }
 }
-void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
+bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
 {
     //mt.converged = false;
     //mt.fitness = 0.0;
@@ -171,14 +171,14 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
     {
         if(!tf_ok_)
         {
-            if(!tf_) return;
+            if(!tf_) return false;
             tf_->lookupTransform(robot_base_frame_, laser_frame_, ros::Time(0), laser2base_);
             tf_ok_ = true;
         }
         
         std::vector<Line> lines;
         line_extraction_.extractLines(lines);
-        if(lines.size() == 0) return;
+        if(lines.size() == 0) return false;
         // convert lines to point cloud
 
         if(first_match_) // first registration
@@ -189,7 +189,7 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
             //printf("SCAN MATCHER: Regist firts match\n");
             first_match_ = false;
             //mt.converged = true;
-            return;
+            return false;
         }
         pcl::PointCloud<pcl::PointXYZ> aligned_cloud, aligned_feature;
         linesToPointCloud(lines, current_feature_.cloud, laser2base_);
@@ -246,12 +246,13 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
         if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
-            current_kf_.scan = current_scan_;
+            //current_kf_.scan = current_scan_;
             keyframes.push_back(current_kf_);
             current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
             current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
             current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
             current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
+            return true;
         }
         //transform_.setOrigin( tf::Vector3(last_know_position_(0) - current_feature_.position(0), 
         //last_know_position_(1) - current_feature_.position(1), 
@@ -265,10 +266,10 @@ void LineScanMatcher::match(const void (*callback)(std::vector<Line>&, pcl::Poin
     {
         //PCL_ERROR("Scan matching error: %s\n", ex.what());
     }
-
+    return false;
 }
 
-void LineScanMatcher::getTransform(tf::Transform& transform)
+void ICPLocalization::getTransform(tf::Transform& transform)
 {
     auto it = keyframes.begin();
     dslam_tf_t _tf;
@@ -287,7 +288,7 @@ void LineScanMatcher::getTransform(tf::Transform& transform)
     tf::Quaternion qad(_tf.rotation.x(), _tf.rotation.y(),_tf.rotation.z(),_tf.rotation.w());
     transform.setRotation(qad);
 }
-void LineScanMatcher::getLastKnowPose(geometry_msgs::Pose& pose)
+void ICPLocalization::getLastKnowPose(geometry_msgs::Pose& pose)
 {
     auto it = keyframes.begin();
     dslam_tf_t _tf;
@@ -309,7 +310,7 @@ void LineScanMatcher::getLastKnowPose(geometry_msgs::Pose& pose)
     pose.orientation.z = _tf.rotation.z();
     pose.orientation.w = _tf.rotation.w();
 }
-void LineScanMatcher::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform& laser2base)
+void ICPLocalization::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform& laser2base)
 {
     //pcl::PointCloud<pcl::PointXYZ> cloud;
     //cloud.width = lines.size()*3;

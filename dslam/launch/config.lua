@@ -17,16 +17,34 @@ local config = {
             min_line_points = 9.0,
             line_scale = 0.05
         },
-        point_cloud_extraction = {
-            max_range = 8.0 --m
-        },
         icp = {
             max_distance = 0.05, -- 5cm correspondence distance
-            max_iteration = 250, -- maximum number of iterations 
+            max_iteration = 300, -- maximum number of iterations 
             tf_epsilon = 1e-6, -- transformation epsilon
-            eu_fitness = 0.5, -- the euclidean distance difference epsilon
-            sample_fitness = 0.5--, -- 30 cm
+            eu_fitness = 1.0, -- the euclidean distance difference epsilon
+            sample_fitness = 1.0--, -- 30 cm
             --translation_tolerance = 1e-6
+        },
+        pf = {
+            MU_SYSTEM_NOISE_X = 0.0,
+            MU_SYSTEM_NOISE_Y = 0.0,
+            MU_SYSTEM_NOISE_THETA = 0.0,
+            SIGMA_SYSTEM_NOISE_X = 4e-6,
+            SIGMA_SYSTEM_NOISE_Y = 4e-6,
+            SIGMA_SYSTEM_NOISE_THETA = 4*PI*PI/(180*180),
+            MU_MEAS_NOISE_X = 0.0,
+            MU_MEAS_NOISE_Y = 0.0,
+            MU_MEAS_NOISE_THETA = 0.0,
+            SIGMA_MEAS_NOISE_X = 2e-6,
+            SIGMA_MEAS_NOISE_Y = 2e-6,
+            SIGMA_MEAS_NOISE_THETA = 4*PI*PI/(120*120),
+            PRIOR_MU_X = -0.01,
+            PRIOR_MU_Y = 0.01,
+            PRIOR_MU_THETA = PI/4,
+            PRIOR_COV_X = 1e-4,
+            PRIOR_COV_Y = 1e-4,
+            PRIOR_COV_THETA = (PI/8)*(PI/8),
+            NUM_SAMPLES = 150
         },
         keyframe_sample_linear = 0.5,
         keyframe_sample_angular = 0.7,
@@ -47,6 +65,6 @@ local config = {
         }
     },
     line_seg_topic = "/line_markers",
-    frequency = 15
+    frequency = 10
 }
 return config

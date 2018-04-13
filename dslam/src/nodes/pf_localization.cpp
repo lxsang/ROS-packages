@@ -1,4 +1,4 @@
-#include "localization/ScanMatcher.h"
+#include "localization/PFLocalization.h"
 #include "utils/luaconf.h"
 #include <ros/ros.h>
 #include <ros/console.h>
@@ -26,7 +26,7 @@ typedef struct{
 
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,nav_msgs::Odometry> NoCloudSyncPolicy;
 std::queue<sensor_data_t> data_queue;
-LineScanMatcher matcher_;
+PFLocalization matcher_;
 ros::Publisher marker_publisher_, local_map_pub;
 ros::Publisher cloudpublisher_, trajectory_p_;
 geometry_msgs::Point point_;
@@ -98,11 +98,15 @@ const void callback(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cl
   cloudpublisher_.publish(pcloud);
 }
 
-double dist(geometry_msgs::Point from, geometry_msgs::Point to)
+void publish_tranform()
 {
-    // Euclidiant dist between a point and the robot
-    return sqrt(pow(to.x - from.x, 2) + pow(to.y - from.y, 2));
+    //publishTranform(mt.rot);
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    matcher_.getTransform(transform);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),map_frame, robot_base_frame));
 }
+
 void run()
 {
     while (ros::ok())
@@ -112,18 +116,16 @@ void run()
       sensor_data_t data = data_queue.front();
       data_queue.pop();
       matcher_.registerScan(data.scan, data.odom);
-      matcher_.match(callback);
+      bool newkf = matcher_.match(callback);
       
-      matcher_.getLastKnowPose(pose);
-      estimated_poses_.poses.push_back(pose);
-      estimated_poses_.header.frame_id = map_frame;
-      estimated_poses_.header.stamp = ros::Time::now();
-      trajectory_p_.publish(estimated_poses_);
-      
-      if(!matcher_.keyframes.empty())
+      if(newkf)
       {
-        map_builder_.fromScan(matcher_.keyframes.back().scan);
-        local_map_pub.publish(map_builder_.getMap());
+        matcher_.getLastKnowPose(pose);
+        estimated_poses_.poses.push_back(pose);
+        estimated_poses_.header.frame_id = map_frame;
+        estimated_poses_.header.stamp = ros::Time::now();
+        trajectory_p_.publish(estimated_poses_);
+         publish_tranform();
       }
 
       point_ = pose.position;
@@ -131,14 +133,7 @@ void run()
   }
 }
 
-void publish_tranform()
-{
-    //publishTranform(mt.rot);
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    matcher_.getTransform(transform);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),map_frame, "odom"));
-}
+
 int main(int argc, char **argv)
 {
   current_tf = Eigen::Matrix4f::Identity();
@@ -215,7 +210,6 @@ int main(int argc, char **argv)
     {
         ros::spinOnce();
         //if(estimated_poses_.poses.size() > 0)
-        publish_tranform();
         rate.sleep();
     }
     return 0;

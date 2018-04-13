@@ -21,7 +21,14 @@ void SubmapBuilder::configure(Configuration &config)
     map_.info.origin.position.x = 0.0;
     map_.info.origin.position.y = -static_cast<double>(height) / 2 * resolution;
     map_.info.origin.orientation.w = 1.0;
-   
+    
+    // Fill in the lookup cache.
+    const double angle_start = -M_PI;
+    const double angle_end = angle_start + 2 * M_PI - 1e-6;
+    for (double a = angle_start; a <= angle_end; a += angle_resolution_)
+    {
+        ray_caster_.getRayCastToMapBorder(a, height, width, 0.9 * angle_resolution_);
+    }
 }
 nav_msgs::OccupancyGrid SubmapBuilder::getMap()
 {
@@ -35,15 +42,7 @@ void SubmapBuilder::fromScan(const sensor_msgs::LaserScan &scan)
     int height = map_.info.height;
     map_.data.assign(width * height, -1);
     log_odds_.assign(width * height, 0);
-    
-    
-    // Fill in the lookup cache.
-    const double angle_start = -M_PI;
-    const double angle_end = angle_start + 2 * M_PI - 1e-6;
-    for (double a = angle_start; a <= angle_end; a += angle_resolution_)
-    {
-        ray_caster_.getRayCastToMapBorder(a, height, width, 0.9 * angle_resolution_);
-    }
+
     // Update occupancy.
     for (size_t i = 0; i < scan.ranges.size(); ++i)
     {
