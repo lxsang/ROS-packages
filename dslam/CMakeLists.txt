@@ -18,6 +18,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PCL REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(catkin REQUIRED COMPONENTS tf)
+pkg_check_modules(BFL REQUIRED orocos-bfl)
+#find_package(orocos-bfl REQUIRED)
 ## System dependencies are found with CMake's conventions
  find_package(Boost REQUIRED COMPONENTS system)
 
@@ -127,8 +129,10 @@ include_directories(
  ${Eigen_INCLUDE_DIRS}
  ${catkin_INCLUDE_DIRS}
  ${PCL_INCLUDE_DIRS}
+ ${BFL_INCLUDE_DIRS}
 )
 link_directories(${PCL_LIBRARY_DIRS})
+link_directories(${BFL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 ## Declare a C++ library
@@ -146,29 +150,31 @@ add_definitions(${PCL_DEFINITIONS})
 ## The recommended prefix ensures that target names across packages don't collide
 add_library(dslam 
     src/utils/luaconf.cpp 
-    src/utils/ConfValue.cpp
-    #src/3rd/laser_geometry/laser_geometry.cpp 
+    src/utils/ConfValue.cpp 
     src/3rd/line_extraction/line.cpp 
     src/3rd/line_extraction/line_extraction.cpp
-    src/localization/LineScanMatcher.cpp
-    #src/localization/PointCloudScanMatcher.cpp
+    src/localization/ICPLocalization.cpp
+    src/localization/NonLinearSystemPDF.cpp
+    src/localization/NonLinearMeasurementPDF.cpp
+    src/localization/PFLocalization.cpp
     src/3rd/raycaster/map_ray_caster.cpp 
     src/mapping/SubmapBuilder.cpp
     )
 target_link_libraries(dslam
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
+    ${BFL_LIBRARIES}
     ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
 
 #add_custom_command(TARGET node_config
 #    PRE_BUILD
 #   /bin/bash src/utils/buildlua.sh
 #) 
-add_executable(line_node src/nodes/lines_scan_matcher.cpp)
-target_link_libraries(line_node  dslam)
+add_executable(icp_node src/nodes/icp_localization.cpp)
+target_link_libraries(icp_node  dslam)
 
-#add_executable(pc_node src/nodes/pc_scan_matcher.cpp)
-#target_link_libraries(pc_node  dslam)
+add_executable(pf_node src/nodes/pf_localization.cpp)
+target_link_libraries(pf_node  dslam)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
