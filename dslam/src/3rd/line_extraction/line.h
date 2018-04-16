@@ -38,7 +38,7 @@ public:
   double length() const;
   unsigned int numPoints() const;
   void projectEndpoints();
-
+  const double dist() const;
 private:
   std::vector<unsigned int> indices_;
   // Data structures

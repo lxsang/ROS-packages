@@ -153,6 +153,7 @@ add_library(dslam
     src/utils/ConfValue.cpp 
     src/3rd/line_extraction/line.cpp 
     src/3rd/line_extraction/line_extraction.cpp
+    src/localization/BaseLocalization.cpp
     src/localization/ICPLocalization.cpp
     src/localization/NonLinearSystemPDF.cpp
     src/localization/NonLinearMeasurementPDF.cpp
@@ -162,7 +163,7 @@ add_library(dslam
     )
 target_link_libraries(dslam
     ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
+    ${PCL_LIBRARIES} 
     ${BFL_LIBRARIES}
     ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
 
@@ -170,11 +171,9 @@ target_link_libraries(dslam
 #    PRE_BUILD
 #   /bin/bash src/utils/buildlua.sh
 #) 
-add_executable(icp_node src/nodes/icp_localization.cpp)
-target_link_libraries(icp_node  dslam)
 
-add_executable(pf_node src/nodes/pf_localization.cpp)
-target_link_libraries(pf_node  dslam)
+add_executable(dslam_node src/nodes/dslam.cpp)
+target_link_libraries(dslam_node  dslam)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

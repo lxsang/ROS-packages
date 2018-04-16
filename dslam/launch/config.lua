@@ -15,11 +15,12 @@ local config = {
             min_split_dist = 0.05,
             outlier_dist = 0.06,
             min_line_points = 9.0,
-            line_scale = 0.1
+            line_scale = 0.06,
+            max_dist = 8.0 -- max laser range
         },
         icp = {
-            max_distance = 0.05, -- 5cm correspondence distance
-            max_iteration = 300, -- maximum number of iterations 
+            max_distance = 0.04, -- 5cm correspondence distance
+            max_iteration = 100, -- maximum number of iterations 
             tf_epsilon = 1e-6, -- transformation epsilon
             eu_fitness = 1.0, -- the euclidean distance difference epsilon
             sample_fitness = 0.5--, -- 30 cm
@@ -44,10 +45,10 @@ local config = {
             PRIOR_COV_X = 1e-4,
             PRIOR_COV_Y = 1e-4,
             PRIOR_COV_THETA = (PI/8)*(PI/8),
-            NUM_SAMPLES = 150
+            NUM_SAMPLES = 100
         },
-        keyframe_sample_linear = 0.5,
-        keyframe_sample_angular = 0.7,
+        keyframe_sample_linear = 0.7,
+        keyframe_sample_angular = 0.9,
         global_frame = "map",
         laser_frame = "laser",
         robot_base = "base_footprint",
@@ -65,6 +66,7 @@ local config = {
         }
     },
     line_seg_topic = "/line_markers",
-    frequency = 10
+    frequency = 10,
+    use_particle_filter = false
 }
 return config
