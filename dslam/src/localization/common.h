@@ -14,7 +14,7 @@ typedef struct{
     pcl::PointCloud<pcl::PointXYZ> cloud;
     Eigen::Quaterniond orientation;
     Eigen::Vector3d position;
-} feature_t;
+} landmark_t;
 typedef struct{
     Eigen::Quaterniond rotation;
     Eigen::Vector3d translation;

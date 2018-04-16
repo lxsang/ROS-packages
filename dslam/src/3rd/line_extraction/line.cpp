@@ -71,6 +71,12 @@ const boost::array<double, 2>  Line::getPerpendicular() const {
   return point;
 }
 
+const double Line::dist() const
+{
+  boost::array<double, 2> point = getPerpendicular();
+  return sqrt(pow(point[0],2) + pow(point[1],2));
+}
+
 const std::vector<unsigned int>& Line::getIndices() const
 {
   return indices_;
