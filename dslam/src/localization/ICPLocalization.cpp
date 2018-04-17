@@ -59,16 +59,16 @@ bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         }
         pcl::PointCloud<pcl::PointXYZ> aligned_cloud, aligned_feature;
         linesToPointCloud(lines, current_feature_.cloud, laser2base_);
-        icp.setInputSource (current_feature_.cloud.makeShared());
+        icp->setInputSource (current_feature_.cloud.makeShared());
         alignLastFeature(aligned_feature);
-        icp.setInputTarget (aligned_feature.makeShared());
-        icp.align(aligned_cloud);
+        icp->setInputTarget (aligned_feature.makeShared());
+        icp->align(aligned_cloud);
         if(callback)
             callback(lines, aligned_feature);
         
         Eigen::Vector3d offset = current_feature_.position - last_features_.position;
         //offset(2) = 0.0;
-        Eigen::Matrix4f _tf = icp.getFinalTransformation();
+        Eigen::Matrix4f _tf = icp->getFinalTransformation();
         //last_know_position_ += offset;
         current_kf_.tf.translation += offset;
 
@@ -79,9 +79,9 @@ bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::Poin
         //M = mt.rot;
         //mt.tl = M*mt.tl;
         last_features_ = current_feature_;
-        //mt.fitness = icp.getFitnessScore();
+        //mt.fitness = icp->getFitnessScore();
         Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
-        if(icp.hasConverged() && icp.getFitnessScore() < sample_fitness_)
+        if(icp->hasConverged() && icp->getFitnessScore() < sample_fitness_)
         {
             Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
             for(int i = 0; i < 2; i ++)
@@ -100,18 +100,19 @@ bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::Poin
             
             //current_kf_.diff.rotation.normalize();
             //mt.converged = true;
-            printf("Converge: %d fitness:%f\n", icp.hasConverged (), icp.getFitnessScore () );
+            printf("Converge: %d fitness:%f\n", icp->hasConverged (), icp->getFitnessScore () );
         }
         //mt.position = last_know_position_;
         current_kf_.diff.translation = current_feature_.position;
         current_kf_.diff.rotation = current_feature_.orientation;
-        
+        current_kf_.index = kf_idx_;
         double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
         double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
         if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
             //current_kf_.scan = current_scan_;
             keyframes.push_back(current_kf_);
+            kf_idx_++;
             current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
             current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
             current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);

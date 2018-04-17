@@ -28,7 +28,7 @@
   </include>
       <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>
 
-    <node name="lines_seg" pkg="dslam" type="pf_node" output="screen" >
+    <node name="lines_seg" pkg="dslam" type="dslam_node" output="screen" >
         <param name="conf_file" value="$(find dslam)/launch/config.lua"/>
     </node>
 </launch>

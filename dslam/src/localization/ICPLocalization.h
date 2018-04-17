@@ -6,7 +6,7 @@ namespace dslam {
 
         public:
             ICPLocalization();
-            ~ICPLocalization(){};
+            virtual ~ICPLocalization(){};
             virtual void configure(Configuration&);
             virtual bool match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
 

@@ -18,7 +18,7 @@ void SubmapBuilder::configure(Configuration &config)
     map_.info.width = width;
     map_.info.height = height;
     map_.info.resolution = resolution;
-    map_.info.origin.position.x = 0.0;
+    map_.info.origin.position.x = -static_cast<double>(width) / 2 * resolution;
     map_.info.origin.position.y = -static_cast<double>(height) / 2 * resolution;
     map_.info.origin.orientation.w = 1.0;
     
@@ -115,7 +115,7 @@ void SubmapBuilder::updateOccupancy(bool occupied, size_t idx, vector<int8_t> &o
     }
     else if (log_odds[idx] > max_log_odds_for_belief_)
     {
-        occupancy[idx] = 100;
+        occupancy[idx] = 99;//100;
     }
     else
     {

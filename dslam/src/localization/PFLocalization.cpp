@@ -27,7 +27,7 @@ void PFLocalization::configure(Configuration &cnf)
 {
     BaseLocalization::configure(cnf);
     odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
-    //icp.setRANSACOutlierRejectionThreshold (0.06); // TODO
+    //icp->setRANSACOutlierRejectionThreshold (0.06); // TODO
 
     Configuration pf_conf = cnf.get<Configuration>("pf", Configuration());
 
@@ -162,9 +162,9 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
         }
         pcl::PointCloud<pcl::PointXYZ> aligned_cloud;
         linesToPointCloud(lines, current_feature_.cloud, laser2base_);
-        icp.setInputSource(current_feature_.cloud.makeShared());
-        icp.setInputTarget(last_features_.cloud.makeShared());
-        icp.align(aligned_cloud);
+        icp->setInputSource(current_feature_.cloud.makeShared());
+        icp->setInputTarget(last_features_.cloud.makeShared());
+        icp->align(aligned_cloud);
         if (callback)
             callback(lines, aligned_cloud);
 
@@ -180,12 +180,12 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
             *last_features_.orientation.inverse())
             .toRotationMatrix().eulerAngles(0,1,2)(2);
 
-        Matrix4f _tf = icp.getFinalTransformation();
+        Matrix4f _tf = icp->getFinalTransformation();
 
         ColumnVector measurement;
         measurement = input;
         last_features_ = current_feature_;
-        if (icp.hasConverged() && icp.getFitnessScore() < sample_fitness_)
+        if (icp->hasConverged() && icp->getFitnessScore() < sample_fitness_)
         {
             Matrix3d rot = Matrix3d::Identity();
             for (int i = 0; i < 2; i++)
@@ -195,7 +195,7 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
             measurement(1) = _tf(0, 3);
             measurement(2) = _tf(1, 3);
 
-            printf("Converge: %d fitness:%f\n", icp.hasConverged(), icp.getFitnessScore());
+            printf("Converge: %d fitness:%f\n", icp->hasConverged(), icp->getFitnessScore());
         }
         pf_filter_->Update(sys_model_, input, meas_model_, measurement);
         //mt.position = last_know_position_;
@@ -205,13 +205,14 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
         current_kf_.tf.rotation = es_pose.rotation*last_estimate_pose_.rotation.inverse();
         current_kf_.diff.translation = current_feature_.position;
         current_kf_.diff.rotation = current_feature_.orientation;
-
+        current_kf_.index = kf_idx_;
         double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
         double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
         if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
             //current_kf_.scan = current_scan_;
             keyframes.push_back(current_kf_);
+            kf_idx_++;
             current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
             current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
             current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
