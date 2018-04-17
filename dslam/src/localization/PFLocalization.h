@@ -18,7 +18,7 @@ namespace dslam {
     class PFLocalization: public BaseLocalization{
         public:
             PFLocalization();
-            ~PFLocalization();
+            virtual ~PFLocalization();
             virtual void configure(Configuration&);
             virtual bool match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
 

@@ -12,6 +12,10 @@ BaseLocalization::BaseLocalization(){
     current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
     current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
     current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
+    kf_idx_ = 0;
+}
+BaseLocalization::~BaseLocalization()
+{
 }
 void BaseLocalization::extractLines(std::vector<Line> &lines)
 {
@@ -74,21 +78,29 @@ void BaseLocalization::configure(Configuration &cnf)
 
     Configuration icpcnf = cnf.get<Configuration>("icp", Configuration());
     double max_dist, max_iter, epsilon, eufitness;
+    bool use_nl = icpcnf.get<bool>("use_non_linear", true);
+    PCL_INFO("ICP: User icp nonlinear %d\n", use_nl);
+
+    if(use_nl)
+        icp = &icp_nl_;
+    else
+        icp = &icp_ln_;
+
     max_dist = icpcnf.get<double>("max_distance", 0.05);
     PCL_INFO("ICP: max dist %f\n", max_dist);
-    icp.setMaxCorrespondenceDistance(max_dist);
+    icp->setMaxCorrespondenceDistance(max_dist);
 
     max_iter = icpcnf.get<double>("max_iteration", 50);
     PCL_INFO("ICP: max iteration %f\n", max_iter);
-    icp.setMaximumIterations((int)max_iter);
+    icp->setMaximumIterations((int)max_iter);
 
     epsilon = icpcnf.get<double>("tf_epsilon", 1e-6);
     PCL_INFO("ICP: tf_epsilon: %f\n", epsilon);
-    icp.setTransformationEpsilon(epsilon);
+    icp->setTransformationEpsilon(epsilon);
 
     eufitness = icpcnf.get<double>("eu_fitness", 0.5);
     PCL_INFO("ICP: the euclidean distance difference epsilon %f\n", eufitness);
-    icp.setEuclideanFitnessEpsilon(eufitness);
+    icp->setEuclideanFitnessEpsilon(eufitness);
 
     sample_fitness_ = icpcnf.get<double>("sample_fitness", 0.2);
     PCL_INFO("ICP: The sample distance %f\n", sample_fitness_);
@@ -103,7 +115,7 @@ void BaseLocalization::configure(Configuration &cnf)
     PCL_INFO("Map frame is %s, robot frame is %s, and laser frame is %s\n", global_frame_.c_str(), robot_base_frame_.c_str() ,laser_frame_.c_str());
     PCL_INFO("*************************************\n");
 
-    //icp.setRANSACOutlierRejectionThreshold (0.06); // TODO
+    //icp->setRANSACOutlierRejectionThreshold (0.06); // TODO
 }
 
 void BaseLocalization::cacheData(sensor_msgs::LaserScan &scan_msg)

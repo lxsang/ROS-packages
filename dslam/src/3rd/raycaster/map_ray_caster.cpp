@@ -6,6 +6,7 @@ namespace map_ray_caster
 MapRayCaster::MapRayCaster(const int occupied_threshold) :
   occupied_threshold_(occupied_threshold)
 {
+  setMaxRange(200.0);
 }
 
 /** Return true if the map point is occupied.
@@ -57,7 +58,10 @@ void MapRayCaster::laserScanCast(const nav_msgs::OccupancyGrid& map, sensor_msgs
     scan.ranges.push_back(range);
   }
 }
-
+const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angle, const size_t nrow, const size_t ncol, const double tolerance)
+{
+  return getRayCastToMapBorderFrom(angle, nrow, ncol, tolerance, ncol/2, nrow/2);
+}
 /** Return the list of pixel indexes from map center to pixel at map border and given angle
  *
  * The Bresenham algorithm is used.
@@ -68,30 +72,35 @@ void MapRayCaster::laserScanCast(const nav_msgs::OccupancyGrid& map, sensor_msgs
  *
  * @return The list of pixel indexes from map center to pixel at map border and given angle.
  */
-const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angle, const size_t nrow, const size_t ncol, const double tolerance)
+const std::vector<size_t>& MapRayCaster::getRayCastToMapBorderFrom(const double angle, const size_t nrow, const size_t ncol, const double tolerance,  int x0,  int y0)
 {
   // Check that parameters are compatible with the cache. If not, erase the cache.
+  raycast_lookup_.clear();
+  nrow_ = nrow;
+  ncol_ = ncol;
+  /*
   if (nrow != nrow_ || ncol != ncol_)
   {
     raycast_lookup_.clear();
     nrow_ = nrow;
     ncol_ = ncol;
-  }
-
-  RayLookup::const_iterator ray = angleLookup(angle, tolerance);
+  }*/
+  // printf("X0 %d and y0 %d\n",x0, y0);
+  /*RayLookup::const_iterator ray = angleLookup(angle, tolerance);
   if (ray != raycast_lookup_.end())
   {
     return ray->second;
-  }
+  }*/
 
   std::vector<size_t> pts;
 
   // Twice the distance from map center to map corner.
-  const double r = std::sqrt((double) nrow * nrow + ncol * ncol);
+  double r = max_range_;//= std::sqrt((double) nrow * nrow + ncol * ncol);
+  //printf("Max range  %f\n", r);
   // Start point, map center.
   // TODO: the sensor position (map origin)  may not be the map center
-  int x0 = 0;//-ncol / 2;
-  int y0 = nrow / 2;
+  //int x0 = ncol / 2;
+  //int y0 = nrow / 2;
   // End point, outside the map.
   int x1 = (int) round(x0 + r * std::cos(angle)); // Can be negative
   int y1 = (int) round(y0 + r * std::sin(angle));
@@ -137,6 +146,7 @@ const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angl
     }
     if (pointInMap(yDraw, xDraw, nrow, ncol))
     {
+      //printf("Put it in \n");
       pts.push_back(offsetFromRowCol(yDraw, xDraw, ncol));
     }
     else
@@ -156,6 +166,8 @@ const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angl
       e += twoDy; //E += 2*Dy;
     }
   }
+  raycast_lookup_[angle] = pts;
+  return raycast_lookup_[angle];
 }
 
 /** Return an iterator to the closest key (angle) in the cache.

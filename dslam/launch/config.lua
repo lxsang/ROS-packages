@@ -23,8 +23,8 @@ local config = {
             max_iteration = 100, -- maximum number of iterations 
             tf_epsilon = 1e-6, -- transformation epsilon
             eu_fitness = 1.0, -- the euclidean distance difference epsilon
-            sample_fitness = 0.5--, -- 30 cm
-            --translation_tolerance = 1e-6
+            sample_fitness = 0.5,--, -- 30 cm
+            use_non_linear = true
         },
         pf = {
             MU_SYSTEM_NOISE_X = 0.0,
@@ -47,7 +47,7 @@ local config = {
             PRIOR_COV_THETA = (PI/8)*(PI/8),
             NUM_SAMPLES = 100
         },
-        keyframe_sample_linear = 0.7,
+        keyframe_sample_linear = 0.3,
         keyframe_sample_angular = 0.9,
         global_frame = "map",
         laser_frame = "laser",
@@ -55,18 +55,19 @@ local config = {
         odom_frame = "odom"
     },
     mapping = {
-        local_map = {
-            p_occupied_with_observation=0.9,
-            p_occupied_without_observation=0.3,
-            angle_resolution= PI/720.0,
-            large_log_odds=100.0,
-            max_log_odds_for_belief=20.0,
-            max_laser_range = 5.0, -- meter
-            resolution = 0.05
-        }
+        p_occupied_with_observation=0.9,
+        p_occupied_without_observation=0.3,
+        angle_resolution=0.0,-- PI/720.0,
+        large_log_odds=100.0,
+        max_log_odds_for_belief=60.0,
+        max_laser_range = 4.0, -- meter
+        resolution = 0.05,
+        map_frame = "map",
+        init_width = 20.0, --m
+        init_height = 20.0 --m
     },
     line_seg_topic = "/line_markers",
     frequency = 10,
-    use_particle_filter = false
+    use_particle_filter = true
 }
 return config

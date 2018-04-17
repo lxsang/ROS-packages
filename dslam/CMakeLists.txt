@@ -160,6 +160,7 @@ add_library(dslam
     src/localization/PFLocalization.cpp
     src/3rd/raycaster/map_ray_caster.cpp 
     src/mapping/SubmapBuilder.cpp
+    src/mapping/Mapping.cpp
     )
 target_link_libraries(dslam
     ${catkin_LIBRARIES}

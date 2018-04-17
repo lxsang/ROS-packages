@@ -1,8 +1,9 @@
 #ifndef BASE_LOCALIZATION_H
 #define BASE_LOCALIZATION_H
 
+#include <pcl/registration/registration.h>
 #include <pcl/registration/icp_nl.h>
-//#include <pcl/registration/icp.h>
+#include <pcl/registration/icp.h>
 //#include <pcl/registration/gicp.h>
 #include <pcl/common/projection_matrix.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -20,7 +21,7 @@ namespace dslam
     class BaseLocalization{
         public:
             BaseLocalization();
-            ~BaseLocalization(){};
+            virtual ~BaseLocalization();
             void setTF(tf::TransformListener* tf) {tf_ = tf;};
             virtual void configure(Configuration&);
             void registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom);
@@ -34,7 +35,8 @@ namespace dslam
             void cacheData(sensor_msgs::LaserScan&);
             void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
             landmark_t last_features_,current_feature_;
-            pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp;
+            //pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp;
+            pcl::Registration<pcl::PointXYZ, pcl::PointXYZ>* icp;
             LineExtraction line_extraction_;
             tf::TransformListener* tf_;
             int nscan_;
@@ -46,6 +48,11 @@ namespace dslam
             tf::StampedTransform laser2base_;
             key_frame_t current_kf_;
             geometry_msgs::Pose pose_;
+            int kf_idx_;
+        private:
+            pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp_nl_;
+            pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp_ln_;
+            
     };
 }
 
