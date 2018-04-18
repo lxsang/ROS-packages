@@ -3,6 +3,7 @@
 #include <pdf/conditionalpdf.h>
 #include <pdf/gaussian.h>
 #include <Eigen/Dense>
+#include <angles/angles.h>
 namespace BFL
 {
     class NonLinearSystemPDF: public  ConditionalPdf<MatrixWrapper::ColumnVector, MatrixWrapper::ColumnVector>

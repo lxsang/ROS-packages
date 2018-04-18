@@ -58,7 +58,7 @@ void MapRayCaster::laserScanCast(const nav_msgs::OccupancyGrid& map, sensor_msgs
     scan.ranges.push_back(range);
   }
 }
-const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angle, const size_t nrow, const size_t ncol, const double tolerance)
+const std::vector<size_t> MapRayCaster::getRayCastToMapBorder(const double angle, const size_t nrow, const size_t ncol, const double tolerance)
 {
   return getRayCastToMapBorderFrom(angle, nrow, ncol, tolerance, ncol/2, nrow/2);
 }
@@ -72,36 +72,13 @@ const std::vector<size_t>& MapRayCaster::getRayCastToMapBorder(const double angl
  *
  * @return The list of pixel indexes from map center to pixel at map border and given angle.
  */
-const std::vector<size_t>& MapRayCaster::getRayCastToMapBorderFrom(const double angle, const size_t nrow, const size_t ncol, const double tolerance,  int x0,  int y0)
+const std::vector<size_t> MapRayCaster::getRayCastToMapBorderFrom(const double angle, const size_t nrow, const size_t ncol, const double tolerance,  int x0,  int y0)
 {
-  // Check that parameters are compatible with the cache. If not, erase the cache.
-  raycast_lookup_.clear();
-  nrow_ = nrow;
-  ncol_ = ncol;
-  /*
-  if (nrow != nrow_ || ncol != ncol_)
-  {
-    raycast_lookup_.clear();
-    nrow_ = nrow;
-    ncol_ = ncol;
-  }*/
-  // printf("X0 %d and y0 %d\n",x0, y0);
-  /*RayLookup::const_iterator ray = angleLookup(angle, tolerance);
-  if (ray != raycast_lookup_.end())
-  {
-    return ray->second;
-  }*/
 
   std::vector<size_t> pts;
 
-  // Twice the distance from map center to map corner.
   double r = max_range_;//= std::sqrt((double) nrow * nrow + ncol * ncol);
-  //printf("Max range  %f\n", r);
-  // Start point, map center.
-  // TODO: the sensor position (map origin)  may not be the map center
-  //int x0 = ncol / 2;
-  //int y0 = nrow / 2;
-  // End point, outside the map.
+  // End point, may be outside the map.
   int x1 = (int) round(x0 + r * std::cos(angle)); // Can be negative
   int y1 = (int) round(y0 + r * std::sin(angle));
   int dx = x1 - x0;
@@ -152,8 +129,7 @@ const std::vector<size_t>& MapRayCaster::getRayCastToMapBorderFrom(const double 
     else
     {
       // We exit when the first point outside the map is encountered.
-      raycast_lookup_[angle] = pts;
-      return raycast_lookup_[angle];
+      break;
     }
     // next
     if (e > 0)
@@ -166,79 +142,7 @@ const std::vector<size_t>& MapRayCaster::getRayCastToMapBorderFrom(const double 
       e += twoDy; //E += 2*Dy;
     }
   }
-  raycast_lookup_[angle] = pts;
-  return raycast_lookup_[angle];
-}
-
-/** Return an iterator to the closest key (angle) in the cache.
- *
- * @return The iterator to the closest key (angle) in the cache, if this angle is close enough
- * to the desired angle. Otherwise, return the past the last iterator.
- */
-RayLookup::const_iterator MapRayCaster::angleLookup(const double angle, const double tolerance)
-{
-  if (tolerance == 0)
-  {
-    return raycast_lookup_.find(angle);
-  }
-
-  double dangle_lower;
-  double dangle_upper;
-
-  RayLookup::const_iterator upper_bound = raycast_lookup_.upper_bound(angle);
-  if (upper_bound == raycast_lookup_.begin())
-  {
-    if (std::abs(angles::shortest_angular_distance(angle, upper_bound->first)) <= tolerance)
-    {
-      return upper_bound;
-    }
-    return raycast_lookup_.end();
-  }
-  else if (upper_bound == raycast_lookup_.end())
-  {
-    dangle_upper = raycast_lookup_.begin()->first - angle + 2 * M_PI;
-    upper_bound--;
-    dangle_lower = upper_bound->first - angle;
-    if (dangle_lower < dangle_upper)
-    {
-      if (std::abs(angles::shortest_angular_distance(angle, upper_bound->first)) <= tolerance)
-      {
-        return upper_bound;
-      }
-      return raycast_lookup_.end();
-    }
-    else
-    {
-      if (std::abs(angles::shortest_angular_distance(angle, raycast_lookup_.begin()->first)) <= tolerance)
-      {
-        return raycast_lookup_.begin();
-      }
-      return raycast_lookup_.end();
-    }
-  }
-  else
-  {
-    dangle_upper = upper_bound->first - angle;
-    RayLookup::const_iterator lower_bound = upper_bound;
-    lower_bound--;
-    dangle_lower = angle - lower_bound->first;
-    if (dangle_lower < dangle_upper)
-    {
-      if (std::abs(angles::shortest_angular_distance(angle, lower_bound->first)) <= tolerance)
-      {
-        return lower_bound;
-      }
-      return raycast_lookup_.end();
-    }
-    else
-    {
-      if (std::abs(angles::shortest_angular_distance(angle, upper_bound->first)) <= tolerance)
-      {
-        return upper_bound;
-      }
-      return raycast_lookup_.end();
-    }
-  }
+  return pts;
 }
 
 } // namespace map_ray_caster

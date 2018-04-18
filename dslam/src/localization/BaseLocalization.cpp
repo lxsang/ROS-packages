@@ -17,14 +17,22 @@ BaseLocalization::BaseLocalization(){
 BaseLocalization::~BaseLocalization()
 {
 }
-void BaseLocalization::extractLines(std::vector<Line> &lines)
+void BaseLocalization::extractLines(std::vector<Line> &lines_)
 {
-    std::vector<Line> _lines;
-    line_extraction_.extractLines(_lines);
-    for (std::vector<Line>::const_iterator cit = _lines.begin(); cit != _lines.end(); ++cit)
-        if(cit->dist() <= max_line_dist_)
-            lines.push_back(*cit);
-
+    std::vector<Line> lines;
+    line_extraction_.extractLines(lines);
+    boost::array<double, 2> org;
+    org[0] = 0.0;
+    org[1] = 0.0;
+    for (std::vector<Line>::const_iterator cit = lines.begin(); cit != lines.end(); ++cit)
+    {
+        Line l(org, cit->getStart());
+        if(l.length() > max_line_dist_)
+            l = Line(org, cit->getEnd());
+        if(l.length() < max_line_dist_)
+            lines_.push_back(l);
+        lines_.push_back(*cit);
+    }
 }
 void BaseLocalization::configure(Configuration &cnf)
 {
@@ -33,6 +41,8 @@ void BaseLocalization::configure(Configuration &cnf)
         max_line_gap, min_line_length, min_range, min_split_dist, outlier_dist;
     int min_line_points;
 
+    publish_odom_ = cnf.get<bool>("publish_odom", false);
+    odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
     bearing_std_dev = xline_config.get<double>("bearing_std_dev", 1e-3);
     line_extraction_.setBearingVariance(bearing_std_dev * bearing_std_dev);
     PCL_INFO("bearing_std_dev: %f\n", bearing_std_dev);
@@ -117,7 +127,12 @@ void BaseLocalization::configure(Configuration &cnf)
 
     //icp->setRANSACOutlierRejectionThreshold (0.06); // TODO
 }
-
+bool BaseLocalization::match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&))
+{
+    bool v = __match(callback);
+    if(publish_odom_) publishOdomTF();
+    return v;
+}
 void BaseLocalization::cacheData(sensor_msgs::LaserScan &scan_msg)
 {
     std::vector<double> bearings, cos_bearings, sin_bearings;
@@ -157,8 +172,43 @@ void BaseLocalization::registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::
     std::vector<double> scan_ranges_doubles(scan_msg.ranges.begin(), scan_msg.ranges.end());
     line_extraction_.setRangeData(scan_ranges_doubles);
     current_kf_.scan = scan_msg;
+    if(tf_ok_)
+    {
+        current_kf_.base2laser.translation(0) = laser2base_.getOrigin().getX();
+        current_kf_.base2laser.translation(1) = laser2base_.getOrigin().getY();
+        current_kf_.base2laser.translation(2) = laser2base_.getOrigin().getZ();
+
+        current_kf_.base2laser.rotation.x() = laser2base_.getRotation().x();
+        current_kf_.base2laser.rotation.y() = laser2base_.getRotation().y();
+        current_kf_.base2laser.rotation.z() = laser2base_.getRotation().z();
+        current_kf_.base2laser.rotation.w() = laser2base_.getRotation().w();
+    }
 }
-void BaseLocalization::getTransform(tf::Transform& transform)
+void BaseLocalization::publishOdomTF()
+{
+    if(!publish_odom_) return;
+    updatePose();
+    dslam_tf_t _tf;
+    _tf.translation(0) = pose_.position.x + current_kf_.tf.translation(0);
+    _tf.translation(1) = pose_.position.y + current_kf_.tf.translation(1);
+    _tf.translation(2) = 0.0;
+
+    _tf.rotation.x() = pose_.orientation.x;
+    _tf.rotation.y() = pose_.orientation.y;
+    _tf.rotation.z() = pose_.orientation.z;
+    _tf.rotation.w() = pose_.orientation.w;
+    
+    _tf.rotation = _tf.rotation*current_kf_.tf.rotation;
+
+    //std::cout << "Publishing Odom "  << std::endl;
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(_tf.translation(0),_tf.translation(1),0.0));
+    tf::Quaternion qad(_tf.rotation.x(), _tf.rotation.y(),_tf.rotation.z(),_tf.rotation.w());
+    transform.setRotation(qad);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), odom_frame_, robot_base_frame_));
+}
+void BaseLocalization::updatePose()
 {
     if(keyframes.size() == 0) return;
     auto it = keyframes.begin();
@@ -170,6 +220,11 @@ void BaseLocalization::getTransform(tf::Transform& transform)
         _tf.translation += it->tf.translation;
         _tf.rotation *= it->tf.rotation;
         //_tf.rotation.normalize();
+        if(publish_odom_)
+        {
+            it->diff.translation = _tf.translation;
+            it->diff.rotation = _tf.rotation;
+        }
         it++;
     }
     pose_.position.x = _tf.translation(0);
@@ -180,13 +235,22 @@ void BaseLocalization::getTransform(tf::Transform& transform)
     pose_.orientation.y = _tf.rotation.y();
     pose_.orientation.z = _tf.rotation.z();
     pose_.orientation.w = _tf.rotation.w();
+}
+void BaseLocalization::getTransform(tf::Transform& transform)
+{
+    
+    updatePose();
+    dslam_tf_t diff = keyframes.back().diff;
 
-    _tf.translation -= keyframes.back().diff.translation;
-    _tf.rotation  = _tf.rotation*keyframes.back().diff.rotation.inverse();
-
-    transform.setOrigin( tf::Vector3(_tf.translation(0),_tf.translation(1),0.0));
+    transform.setOrigin(tf::Vector3(pose_.position.x - diff.translation(0),pose_.position.y-diff.translation(1),0.0));
     //tf::Quaternion qad(0.0, 0.0,0.0,1.0);
-    tf::Quaternion qad(_tf.rotation.x(), _tf.rotation.y(),_tf.rotation.z(),_tf.rotation.w());
+    Eigen::Quaterniond q ;
+    q.x() = pose_.orientation.x;
+    q.y() = pose_.orientation.y;
+    q.z() = pose_.orientation.z;
+    q.w() = pose_.orientation.w;
+    q = q*diff.rotation.inverse();
+    tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
     transform.setRotation(qad);
 }
 void BaseLocalization::getLastKnownPose(geometry_msgs::Pose& pose)
@@ -205,7 +269,7 @@ void BaseLocalization::linesToPointCloud(std::vector<Line>& lines, pcl::PointClo
     for (std::vector<Line>::const_iterator cit = lines.begin(); cit != lines.end(); ++cit)
     {
         std::vector<pcl::PointXYZ> points;
-        cit->asPointCloud(points, laser2base, (int)(cit->length()/line_scale_));
+        cit->asPointCloud(points, laser2base, (int)(cit->length()/line_scale_), max_line_dist_ );
         size += points.size();
         cloud.points.insert(cloud.points.end(), points.begin(), points.end());
     }

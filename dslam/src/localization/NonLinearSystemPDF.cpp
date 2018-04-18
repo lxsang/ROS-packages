@@ -18,7 +18,7 @@ namespace BFL{
         ColumnVector odom_offset = ConditionalArgumentGet(1);
         
         state += odom_offset;
-
+        state(3) = angles::normalize_angle(state(3));
         Sample<ColumnVector> noise;
         noise_.SampleFrom(noise,method, args);
 

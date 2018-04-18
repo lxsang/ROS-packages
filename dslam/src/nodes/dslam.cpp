@@ -95,7 +95,7 @@ const void callback(std::vector<Line> &lines, pcl::PointCloud<pcl::PointXYZ> &cl
 }
 
 void publish_tranform()
-{
+{ 
     if (!matcher_->keyframes.empty()){
         static tf::TransformBroadcaster br;
         tf::Transform transform;
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
     //scan_subscriber_ = nh_local.subscribe(scan_topic, 1, &laserScanCallback);
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_subscriber_(nh_local, scan_topic, 1);
     message_filters::Subscriber<nav_msgs::Odometry> odom_subscriber_(nh_local, odom_topic, 1);
-    message_filters::Synchronizer<NoCloudSyncPolicy> sync(NoCloudSyncPolicy(5), scan_subscriber_, odom_subscriber_);
+    message_filters::Synchronizer<NoCloudSyncPolicy> sync(NoCloudSyncPolicy(1), scan_subscriber_, odom_subscriber_);
     sync.registerCallback(boost::bind(&sensorCallback, _1, _2));
 
     marker_publisher_ = nh_local.advertise<visualization_msgs::Marker>(marker_topic, 1);

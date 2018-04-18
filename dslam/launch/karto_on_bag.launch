@@ -25,5 +25,6 @@
     <param name="resolution" value="0.05"/>
     <rosparam command="load" file="$(find slam_karto)/config/mapper_params.yaml" />
   </node>
-   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>
+   <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/-->
 </launch>

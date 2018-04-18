@@ -25,10 +25,10 @@ namespace dslam{
             //void resolveMapsize(Eigen::Vector3d,const nav_msgs::OccupancyGrid&);
             //void mergeSubmap(const nav_msgs::OccupancyGrid&,Eigen::Vector3d);
             
-            bool castToObstacle(double , double , vector<size_t> &,  Eigen::Vector3d pos);
-            void updatePoints(bool , const vector<size_t> &, vector<int8_t> &, vector<double> &);
-            void updateOccupancy(bool, size_t idx, vector<int8_t> &, vector<double> &);
-            void fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t _tf);
+            bool castToObstacle(double , double , vector<size_t> &,  dslam_tf_t& _tf);
+            void updatePoints(double, bool  , const vector<size_t> &, vector<int8_t> &, vector<double> &);
+            void updateOccupancy(double, size_t idx, vector<int8_t> &, vector<double> &);
+            void fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf);
 
             std::map<int, nav_msgs::OccupancyGrid> submaps_;
            //probability that a point is occupied from laser data 
