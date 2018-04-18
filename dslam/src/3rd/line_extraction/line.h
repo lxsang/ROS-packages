@@ -20,6 +20,7 @@ public:
   Line(double angle, double radius, const boost::array<double, 4> &covariance,
        const boost::array<double, 2> &start, const boost::array<double, 2> &end,
        const std::vector<unsigned int> &indices);
+  Line(boost::array<double, 2>,boost::array<double, 2>);
   ~Line();
   // Get methods for the line parameters
   double getAngle() const;
@@ -32,7 +33,7 @@ public:
   const boost::array<double, 2> &getStart() const;
   // Methods for line fitting
   double distToPoint(unsigned int);
-  void asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&,int) const;
+  void asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&,int, double) const;
   void endpointFit();
   void leastSqFit();
   double length() const;

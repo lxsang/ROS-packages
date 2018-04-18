@@ -26,7 +26,6 @@ PFLocalization::~PFLocalization()
 void PFLocalization::configure(Configuration &cnf)
 {
     BaseLocalization::configure(cnf);
-    odom_frame_ = cnf.get<std::string>("odom_frame", "/odom");
     //icp->setRANSACOutlierRejectionThreshold (0.06); // TODO
 
     Configuration pf_conf = cnf.get<Configuration>("pf", Configuration());
@@ -44,6 +43,9 @@ void PFLocalization::configure(Configuration &cnf)
     double SIGMA_MEAS_NOISE_X = pf_conf.get<double>("SIGMA_MEAS_NOISE_X", 2e-4);
     double SIGMA_MEAS_NOISE_Y = pf_conf.get<double>("SIGMA_MEAS_NOISE_Y", 2e-4);
     double SIGMA_MEAS_NOISE_THETA = pf_conf.get<double>("SIGMA_MEAS_NOISE_THETA", 2e-4);
+
+    //meas_linear_tol_ = pf_conf.get<double>("MEAS_LINEAR_TOLERANCE", 0.0);
+    //meas_angular_tol_ = pf_conf.get<double>("MEAS_ANGULAR_TOLERANCE", 0.0);
 
     // Initial estimate of position and orientation
     double PRIOR_MU_X = pf_conf.get<double>("PRIOR_MU_X", -1e-2);
@@ -132,7 +134,7 @@ void PFLocalization::configure(Configuration &cnf)
     //printf("======INIT PF FILTER Finish\n");
 }
 
-bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::PointCloud<pcl::PointXYZ> &cloud))
+bool PFLocalization::__match(const void (*callback)(std::vector<Line> &, pcl::PointCloud<pcl::PointXYZ> &cloud))
 {
     try
     {
@@ -179,7 +181,11 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
             (current_feature_.orientation
             *last_features_.orientation.inverse())
             .toRotationMatrix().eulerAngles(0,1,2)(2);
-
+        input(3) = angles::normalize_angle(input(3));
+        
+        //input(1) = fabs(input(1)) > meas_linear_tol_?input(1):0.0;
+        //input(2) = fabs(input(2)) > meas_linear_tol_?input(2):0.0;
+        //input(3) = fabs(input(3)) > meas_angular_tol_?input(3):0.0;
         Matrix4f _tf = icp->getFinalTransformation();
 
         ColumnVector measurement;
@@ -191,11 +197,25 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
             for (int i = 0; i < 2; i++)
                 for (int j = 0; j < 2; j++)
                     rot(i, j) = _tf(i, j);
-            measurement(3) = rot.eulerAngles(0,1,2)(2);
-            measurement(1) = _tf(0, 3);
-            measurement(2) = _tf(1, 3);
+            double theta = angles::normalize_angle(rot.eulerAngles(0,1,2)(2));
+            Vector3d tl;
+            tl(0) =  _tf(0, 3);
+            tl(1) = _tf(1,3);
+            tl(2) = 0.0;
+            tl = last_features_.orientation.toRotationMatrix()*tl;
+            measurement(3) = theta;
+            measurement(1) = tl(0);
+            measurement(2) = tl(1);
 
-            printf("Converge: %d fitness:%f\n", icp->hasConverged(), icp->getFitnessScore());
+            //measurement(3) = fabs(theta) > meas_angular_tol_?theta:0.0;
+            //measurement(1) = fabs(_tf(0, 3)) > meas_linear_tol_?_tf(0, 3):0.0;
+            //measurement(2) = fabs(_tf(1, 3)) > meas_linear_tol_?_tf(1, 3):0.0;
+
+            //printf("Converge: %d fitness:%f\n", icp->hasConverged(), icp->getFitnessScore());
+        }
+        else
+        {
+            ROS_WARN("ICP is not converged\n");
         }
         pf_filter_->Update(sys_model_, input, meas_model_, measurement);
         //mt.position = last_know_position_;
@@ -208,6 +228,13 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
         current_kf_.index = kf_idx_;
         double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
         double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
+
+        // transform
+        //transform_.setOrigin( tf::Vector3(es_pose.translation(0) - current_feature_.position(0),es_pose.translation(1) - current_feature_.position(1),0.0));
+        //Quaterniond __q = es_pose.rotation*current_feature_.orientation.inverse();
+        //tf::Quaternion qad(__q.x(), __q.y(),__q.z(),__q.w());
+        //transform_.setRotation(qad);
+
         if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
             //current_kf_.scan = current_scan_;
@@ -228,45 +255,7 @@ bool PFLocalization::match(const void (*callback)(std::vector<Line> &, pcl::Poin
     }
     return false;
 }
-/*
-void PFLocalization::getTransform(tf::Transform &transform)
-{
-    if(!tf_) return;
-    try{
-        tf::StampedTransform robot2odom;
-        tf_->lookupTransform(odom_frame_,robot_base_frame_, ros::Time(0), robot2odom );
-        geometry_msgs::Pose pose;
-        getLastKnowPose(pose);
 
-        tf::Vector3 tl(0.0, 0.0, 0.0);
-        tl.setX( pose.position.x - robot2odom.getOrigin().getX() );
-        tl.setY(pose.position.y - robot2odom.getOrigin().getY() );
-        tl.setZ(pose.position.z - robot2odom.getOrigin().getZ() );
-
-        transform.setOrigin(tl);
-
-        Quaterniond q;
-        q.x() = pose.orientation.x;
-        q.y() = pose.orientation.y;
-        q.z() = pose.orientation.z;
-        q.w() = pose.orientation.w;
-
-        Quaterniond p;
-        p.x() = robot2odom.getRotation().x();
-        p.y() = robot2odom.getRotation().y();
-        p.z() = robot2odom.getRotation().z();
-        p.w() = robot2odom.getRotation().w();
-
-        q = q*p.inverse();
-
-        //tf::Quaternion qad(0.0, 0.0,0.0,1.0);
-        tf::Quaternion qad(q.x(), q.y(), q.z(), q.w());
-        transform.setRotation(qad);
-    }
-    catch(tf::TransformException e){}
-    
-}
-*/
 void PFLocalization::getLastEstimatedPose( dslam_tf_t& pose)
 {
     MCPdf<ColumnVector> *posterior = pf_filter_->PostGet();
@@ -293,35 +282,4 @@ void PFLocalization::getLastEstimatedPose( dslam_tf_t& pose)
 
     pose.rotation = q;
 }
-/*
-void PFLocalization::getLastKnowPose(geometry_msgs::Pose &pose)
-{
-    MCPdf<ColumnVector> *posterior = pf_filter_->PostGet();
-    std::vector<WeightedSample<ColumnVector>> samples = posterior->ListOfSamplesGet();
-    int index = 0;
-    double maxWeight = -INFINITY;
-    for (int i = 0; i < samples.size(); i++)
-        if (samples.at(i).WeightGet() > maxWeight)
-        {
-            index = i;
-            maxWeight = samples.at(i).WeightGet();
-        }
-
-    ColumnVector _tf = samples.at(index).ValueGet();
-
-    Quaterniond q =
-        AngleAxisd(0.0, Vector3d::UnitX())
-        * AngleAxisd(0.0, Vector3d::UnitY())
-        * AngleAxisd(_tf(3), Vector3d::UnitZ());
-
-    pose.position.x = _tf(1);
-    pose.position.y = _tf(2);
-    pose.position.z = 0.0;
-
-    pose.orientation.x = q.x();
-    pose.orientation.y = q.y();
-    pose.orientation.z = q.z();
-    pose.orientation.w = q.w();
-}
-*/
 }

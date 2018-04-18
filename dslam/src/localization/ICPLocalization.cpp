@@ -27,7 +27,7 @@ void ICPLocalization::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
         ret.points[i].z = 0.0;//v.z() - offset.z();
     }
 }
-bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
+bool ICPLocalization::__match(const void (*callback)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>& cloud))
 {
     //mt.converged = false;
     //mt.fitness = 0.0;
@@ -93,8 +93,14 @@ bool ICPLocalization::match(const void (*callback)(std::vector<Line>&, pcl::Poin
             current_kf_.tf.rotation *= q;
             //current_kf_.tf.rotation.normalize();
             //mt.tl = _tf*mt.tl;
-            current_kf_.tf.translation(0) += _tf(0,3);
-            current_kf_.tf.translation(1) += _tf(1,3);
+            Eigen::Vector3d tl;
+            tl(0) =  _tf(0, 3);
+            tl(1) = _tf(1,3);
+            tl(2) = 0.0;
+            tl = last_features_.orientation.toRotationMatrix()*tl;
+
+            current_kf_.tf.translation(0) += tl(0);
+            current_kf_.tf.translation(1) += tl(1);
             //current_kf_.tf.translation(2) += _tf(2,3);
 
             

@@ -27,6 +27,13 @@ Line::Line(double angle, double radius, const boost::array<double, 4> &covarianc
 {
 }
 
+Line::Line(boost::array<double, 2> start,boost::array<double, 2> end):
+  start_(start),
+  end_(end)
+  {
+    // TODO calculate other variable here
+  }
+
 Line::~Line()
 {
 }
@@ -91,9 +98,8 @@ const boost::array<double, 2>& Line::getStart() const
 {
   return start_;
 }
-void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform& transform, int size) const
+void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform& transform, int size, double lim) const
 {
-  cloud.resize(size);
   tf::Vector3 nend, nstart;
   nend.setX(end_[0]);
   nend.setY(end_[1]);
@@ -114,12 +120,19 @@ void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&
   dx /= mag;
   dy /= mag;
   //int size = r_data_.xs.size()/scale;
-  cloud.resize(size);
+  boost::array<double, 2> a,b;
+  a[0] = 0.0;
+  a[1] = 0.0;
+  pcl::PointXYZ point;
   for(int i = 0; i < size ; i++)
   {
-    cloud[i].x = dx*i*mag/(double)size + nstart.x();
-    cloud[i].y = dy*i*mag/(double)size + nstart.y();
-    cloud[i].z = 0.0;
+    point.x = b[0] = dx*i*mag/(double)size + nstart.x();
+    point.y = b[1] = dy*i*mag/(double)size + nstart.y();
+    point.z = 0.0;
+    Line l(a,b);
+    if(l.length() > lim) continue;
+    cloud.push_back(point);
+
   }
   /*cloud.resize(3);
   tf::Vector3 landmark;

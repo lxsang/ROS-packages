@@ -53,7 +53,7 @@ void Mapping::buildFrom(std::list<key_frame_t> &keyframes)
     map_.data.assign(map_.info.width * map_.info.height, -1);
     log_odds_.assign(map_.info.width * map_.info.height, 0);
     auto it = keyframes.begin();
-    dslam_tf_t _tf;
+    dslam_tf_t _tf, _tf1;
     _tf.translation = Eigen::Vector3d(0.0, 0.0, 0.0);
     _tf.rotation = Eigen::Quaterniond::Identity();
     while (it != keyframes.end())
@@ -63,7 +63,20 @@ void Mapping::buildFrom(std::list<key_frame_t> &keyframes)
         _tf.translation += it->tf.translation;
         _tf.rotation *= it->tf.rotation;
 
-        fromScan(it->scan,_tf);
+        _tf1.rotation = _tf.rotation*it->base2laser.rotation;
+        // rotate base2laser vector around origin
+        Vector3d rotated_v;
+        double angle = angles::normalize_angle(_tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
+        double x = it->base2laser.translation(0);
+        double y = it->base2laser.translation(1);
+
+        rotated_v(0) = (x * cos(angle)) - ( (- y) * sin(angle));
+        rotated_v(1) = ((- y) * cos(angle)) - (x  * sin(angle)) ;
+        rotated_v(2) = 0.0;
+        
+        _tf1.translation = _tf.translation + rotated_v;
+        
+        fromScan(it->scan,_tf1);
         // now merge the submap to the global map using _tf
         //nav_msgs::OccupancyGrid out;
         //rotateSubMap(submaps_[it->index], out, _tf.rotation);
@@ -154,19 +167,19 @@ void Mapping::resolveMapsize(Eigen::Vector3d theirpose, const nav_msgs::Occupanc
         map_.info.origin.position.y = miny;
     }
 }*/
-void Mapping::fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t _tf)
+void Mapping::fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf)
 {
     const int ncol = map_.info.width;
 
     int width = map_.info.width;
     int height = map_.info.height;
-    double yaw = _tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2];
+    //log_odds_.assign(map_.info.width * map_.info.height, 0);
     // Update occupancy.
     for (size_t i = 0; i < scan.ranges.size(); ++i)
     {
-        const double angle = angles::normalize_angle(scan.angle_min + i * scan.angle_increment + yaw);
+        const double angle = angles::normalize_angle(scan.angle_min + i * scan.angle_increment);
         vector<size_t> pts;
-        const bool obstacle_in_map = castToObstacle(angle, scan.ranges[i], pts, _tf.translation);
+        const bool obstacle_in_map = castToObstacle(angle, scan.ranges[i], pts, _tf);
         if (pts.empty())
         {
             continue;
@@ -175,23 +188,33 @@ void Mapping::fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t _tf)
         {
             // The last point is the point with obstacle.
             const size_t last_pt = pts.back();
-            updateOccupancy(true, last_pt, map_.data, log_odds_);
+            updateOccupancy(p_occupied_w_observation_, last_pt, map_.data, log_odds_);
             pts.pop_back();
-            updatePoints(false, pts, map_.data, log_odds_);
+            updatePoints(p_occupied_wo_observation_  ,false, pts, map_.data, log_odds_);
+        } 
+        else
+        {
+            updatePoints(p_occupied_wo_observation_  ,true, pts, map_.data, log_odds_);
         }
         // The remaining points are in free space.
         
     }
 }
-void Mapping::updatePoints(bool occupied, const vector<size_t> &indexes, vector<int8_t> &occupancy, vector<double> &log_odds)
+void Mapping::updatePoints(double p, bool desc, const vector<size_t> &indexes, vector<int8_t> &occupancy, vector<double> &log_odds)
 {
-    vector<size_t>::const_iterator idx = indexes.begin();
-    for (; idx != indexes.end(); ++idx)
+    double _p = p;
+    int s = indexes.size();
+    s = desc?s/2:s;
+    for (int i = 0; i < s; i++)
     {
-        updateOccupancy(occupied, *idx, occupancy, log_odds);
+        if(desc)
+        {
+           _p = 0.5*i/s;
+        }
+        updateOccupancy(_p, indexes[i], occupancy, log_odds);
     }
 }
-void Mapping::updateOccupancy(bool occupied, size_t idx, vector<int8_t> &occupancy, vector<double> &log_odds)
+void Mapping::updateOccupancy(double p, size_t idx, vector<int8_t> &occupancy, vector<double> &log_odds)
 {
     if (idx >= occupancy.size())
     {
@@ -205,7 +228,7 @@ void Mapping::updateOccupancy(bool occupied, size_t idx, vector<int8_t> &occupan
     }
 
     // Update log_odds.
-    double p; // Probability of being occupied knowing current measurement.
+    /*double p; // Probability of being occupied knowing current measurement.
     if (occupied)
     {
         p = p_occupied_w_observation_;
@@ -213,7 +236,7 @@ void Mapping::updateOccupancy(bool occupied, size_t idx, vector<int8_t> &occupan
     else
     {
         p = p_occupied_wo_observation_;
-    }
+    }*/
     // Original formula: Table 4.2, "Probabilistics robotics", Thrun et al., 2005:
     // log_odds[idx] = log_odds[idx] +
     //     std::log(p * (1 - p_occupancy) / (1 - p) / p_occupancy);
@@ -239,10 +262,19 @@ void Mapping::updateOccupancy(bool occupied, size_t idx, vector<int8_t> &occupan
     else
     {
         occupancy[idx] = static_cast<int8_t>(lround((1 - 1 / (1 + std::exp(log_odds[idx]))) * 100));
+        /*if(occupancy[idx] > 60)
+            occupancy[idx] = 100;
+        else if(occupancy[idx] < 40)
+            occupancy[idx] = 0;
+        else
+        {
+            log_odds[idx] = 0;
+            occupancy[idx] = -1;
+        }*/
     }
 }
 
-bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast,  Vector3d pos)
+bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast,  dslam_tf_t& _tf)
 {
     // Do not consider a 0-length range.
 
@@ -251,13 +283,15 @@ bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast
         raycast.clear();
         return false;
     }
+    Vector3d pos = _tf.translation;
     int x0 = round(pos(0)/map_.info.resolution + map_.info.width/2);
     int y0 = round(pos(1)/map_.info.resolution + map_.info.height/2);
-    const vector<size_t> &ray_to_map_border = ray_caster_.getRayCastToMapBorderFrom(angle,
+    double yaw = angles::normalize_angle(angle + _tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
+    const vector<size_t> &ray_to_map_border = ray_caster_.getRayCastToMapBorderFrom(yaw,
                                                                                 map_.info.height, map_.info.width, 1.1 * angle_resolution_, x0, y0);
     // range in pixel length. The ray length in pixels corresponds to the number
     // of pixels in the bresenham algorithm.
-    const size_t pixel_range = lround(range * max(abs(std::cos(angle)), abs(std::sin(angle))) / map_.info.resolution);
+    const size_t pixel_range = round(range * max(abs(std::cos(yaw)), abs(std::sin(yaw))) / map_.info.resolution);
     size_t raycast_size;
     bool obstacle_in_map = pixel_range < ray_to_map_border.size();
     //printf(" RANGE IS %d and obstacle_in_map IS %d\n ", pixel_range, ray_to_map_border.size() );

@@ -20,11 +20,11 @@ namespace dslam {
             PFLocalization();
             virtual ~PFLocalization();
             virtual void configure(Configuration&);
-            virtual bool match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
+        protected:
+            virtual bool __match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
 
         private:
             void getLastEstimatedPose(dslam_tf_t &);
-            std::string odom_frame_;
             dslam_tf_t last_estimate_pose_;
             BootstrapFilter<ColumnVector,ColumnVector>* pf_filter_;
             SystemModel<ColumnVector>* sys_model_;
@@ -32,6 +32,7 @@ namespace dslam {
             NonLinearSystemPDF* sys_pdf_;
             NonLinearMeasurementPDF* meas_pdf_;
             MCPdf<ColumnVector>* prior_discr_;
+            //double meas_linear_tol_, meas_angular_tol_;
     };
 }
 
