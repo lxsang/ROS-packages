@@ -35,8 +35,8 @@
   <include file="$(find turtlebot_teleop)/launch/xbox360_teleop.launch"/>
 
 
-  <!--include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
-  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
+  <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
+  <!--node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
     
     <rosparam ns="costmap" subst_value="true">
       global_frame: /map
