@@ -8,6 +8,7 @@ namespace dslam {
             ICPLocalization();
             virtual ~ICPLocalization(){};
             virtual void configure(Configuration&);
+            virtual void visualize(ros::Publisher&){};
         protected:
             virtual bool __match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
 

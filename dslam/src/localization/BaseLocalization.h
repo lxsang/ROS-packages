@@ -14,7 +14,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include "3rd/line_extraction/line_extraction.h"
-
+#include "3rd/laser_geometry/laser_geometry.h"
 #include "utils/luaconf.h"
 #include "common.h"
 
@@ -26,6 +26,7 @@ namespace dslam
             virtual ~BaseLocalization();
             void setTF(tf::TransformListener* tf) {tf_ = tf;};
             virtual void configure(Configuration&);
+            virtual void visualize(ros::Publisher&) = 0;
             void registerScan(sensor_msgs::LaserScan &scan_msg, nav_msgs::Odometry& odom);
             void getTransform(tf::Transform&);
             void getLastKnownPose(geometry_msgs::Pose& pose);
@@ -36,6 +37,7 @@ namespace dslam
             void extractLines(std::vector<Line> &lines);
             void cacheData(sensor_msgs::LaserScan&);
             void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
+            void scanToPointCloud(pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
             landmark_t last_features_,current_feature_;
             //pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp;
             pcl::Registration<pcl::PointXYZ, pcl::PointXYZ>* icp;
@@ -57,7 +59,7 @@ namespace dslam
             void updatePose();
             pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp_nl_;
             pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp_ln_;
-            
+            laser_geometry::LaserProjection projector_;
     };
 }
 
