@@ -39,7 +39,7 @@
   </group>
   <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="$(arg respawn_gazebo)" output="screen"
 	args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" >
-    <remap from="tf" to="gazebo_tf"/> 
+    <!--remap from="tf" to="gazebo_tf"/--> 
   </node>
 	
   <!-- start gazebo client -->

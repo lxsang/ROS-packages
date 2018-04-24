@@ -158,7 +158,8 @@ add_library(dslam
     src/localization/NonLinearSystemPDF.cpp
     src/localization/NonLinearMeasurementPDF.cpp
     src/localization/PFLocalization.cpp
-    src/3rd/raycaster/map_ray_caster.cpp 
+    src/3rd/raycaster/map_ray_caster.cpp
+    src/3rd/laser_geometry/laser_geometry.cpp
     src/mapping/SubmapBuilder.cpp
     src/mapping/Mapping.cpp 
     )

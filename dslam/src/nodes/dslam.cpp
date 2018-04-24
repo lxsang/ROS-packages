@@ -30,7 +30,7 @@ BaseLocalization *matcher_;
 PFLocalization pf_matcher;
 ICPLocalization icp_matcher;
 ros::Publisher marker_publisher_, local_map_pub;
-ros::Publisher cloudpublisher_, trajectory_p_;
+ros::Publisher cloudpublisher_, trajectory_p_, particles_p_;
 geometry_msgs::Pose pose;
 Mapping map_builder_;
 geometry_msgs::PoseArray estimated_poses_;
@@ -42,10 +42,13 @@ void run();
 void sensorCallback(const sensor_msgs::LaserScanConstPtr &scan_msg, const nav_msgs::OdometryConstPtr &odom)
 {
     //ROS_DEBUG("Data found");
-    sensor_data_t d;
-    d.scan = *scan_msg;
-    d.odom = *odom;
-    data_queue.push(d);
+    if(data_queue.empty())
+    {
+        sensor_data_t d;
+        d.scan = *scan_msg;
+        d.odom = *odom;
+        data_queue.push(d);
+    }
 }
 
 void populateMarkerMsg(const std::vector<Line> &lines,
@@ -54,7 +57,7 @@ void populateMarkerMsg(const std::vector<Line> &lines,
     marker_msg.ns = "line_extraction";
     marker_msg.id = 0;
     marker_msg.type = visualization_msgs::Marker::LINE_LIST;
-    marker_msg.scale.x = 0.1;
+    marker_msg.scale.x = 0.01;
     marker_msg.color.r = 1.0;
     marker_msg.color.g = 0.0;
     marker_msg.color.b = 0.0;
@@ -96,11 +99,13 @@ const void callback(std::vector<Line> &lines, pcl::PointCloud<pcl::PointXYZ> &cl
 
 void publish_tranform()
 { 
-    if (!matcher_->keyframes.empty()){
+   while (ros::ok())
+    { 
         static tf::TransformBroadcaster br;
         tf::Transform transform;
         matcher_->getTransform(transform);
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), map_frame, "odom"));
+        //matcher_->visualize(particles_p_);
     }
     
 }
@@ -150,14 +155,12 @@ int main(int argc, char **argv)
         ros::console::notifyLoggerLevelsChanged();
     }
 
-    ROS_DEBUG("Starting dslam.");
-
     ros::init(argc, argv, "dslam");
     ros::NodeHandle nh_local("~");
     tf::TransformListener *listener = new tf::TransformListener();
     // Parameters used by this node
 
-    std::string scan_topic, config_file, marker_topic, odom_topic;
+    std::string scan_topic, config_file, marker_topic, odom_topic, map_topic;
     nh_local.param<std::string>("conf_file", config_file, "config.lua");
     Configuration config(config_file);
     bool use_particle_filter = config.get<bool>("use_particle_filter", true);
@@ -174,7 +177,7 @@ int main(int argc, char **argv)
     odom_topic = config.get<std::string>("odom_topic", "/odom");
 
     marker_topic = config.get<std::string>("line_seg_topic", "/seg_markers");
-
+    map_topic = config.get<std::string>("map_topic", "/map");
     //scan_subscriber_ = nh_local.subscribe(scan_topic, 1, &laserScanCallback);
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_subscriber_(nh_local, scan_topic, 1);
     message_filters::Subscriber<nav_msgs::Odometry> odom_subscriber_(nh_local, odom_topic, 1);
@@ -184,10 +187,13 @@ int main(int argc, char **argv)
     marker_publisher_ = nh_local.advertise<visualization_msgs::Marker>(marker_topic, 1);
     cloudpublisher_ = nh_local.advertise<sensor_msgs::PointCloud2>("/keypoints", 1);
     trajectory_p_ = nh_local.advertise<geometry_msgs::PoseArray>("/trajectory", 1);
+
+    particles_p_ = nh_local.advertise<sensor_msgs::PointCloud2>("/particles", 1);
+
     double frequency = config.get<double>("frequency", 25);
     ROS_DEBUG("Frequency set to %0.1f Hz", frequency);
     ros::Rate rate(frequency);
-    local_map_pub = nh_local.advertise<nav_msgs::OccupancyGrid>("/local_map", 1, true);
+    local_map_pub = nh_local.advertise<nav_msgs::OccupancyGrid>(map_topic, 1, true);
     pose.position.x = 0.0; // - offset_.x();
     pose.position.y = 0.0; // - offset_.y();
     pose.position.z = 0.0;
@@ -209,12 +215,13 @@ int main(int argc, char **argv)
 
     boost::thread t1(&run);
     boost::thread t2(&localmapping);
+    boost::thread t3(&publish_tranform);
     //t1.join();
 
     while (ros::ok())
     {
         ros::spinOnce();
-        publish_tranform();
+        //publish_tranform();
         //if(estimated_poses_.poses.size() > 0)
         rate.sleep();
     }

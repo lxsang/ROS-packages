@@ -20,10 +20,12 @@ namespace dslam {
             PFLocalization();
             virtual ~PFLocalization();
             virtual void configure(Configuration&);
+            virtual void visualize(ros::Publisher&);
         protected:
             virtual bool __match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
 
         private:
+            void alignLastFeature(pcl::PointCloud<pcl::PointXYZ>&);
             void getLastEstimatedPose(dslam_tf_t &);
             dslam_tf_t last_estimate_pose_;
             BootstrapFilter<ColumnVector,ColumnVector>* pf_filter_;

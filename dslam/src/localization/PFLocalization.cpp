@@ -133,7 +133,25 @@ void PFLocalization::configure(Configuration &cnf)
     pf_filter_ = new BootstrapFilter<ColumnVector, ColumnVector>(prior_discr_, 0, NUM_SAMPLES / 4.0);
     //printf("======INIT PF FILTER Finish\n");
 }
-
+void PFLocalization::alignLastFeature(pcl::PointCloud<pcl::PointXYZ> &ret)
+{
+    Eigen::Matrix3d M;
+    M = last_features_.orientation*current_feature_.orientation.inverse(); 
+    ret.width = last_features_.cloud.width;
+    ret.height = last_features_.cloud.height;
+    ret.is_dense = last_features_.cloud.is_dense;
+    Eigen::Vector3d offset = current_feature_.position - last_features_.position;
+    ret.points.resize(ret.width);
+    for(int i = 0; i < last_features_.cloud.width; i++)
+    {
+        Eigen::Vector3d v(last_features_.cloud.points[i].x, last_features_.cloud.points[i].y , last_features_.cloud.points[i].z);
+        v = M*v;
+        //Eigen::Vector3d rotatedV = rotatedP.vec();
+        ret.points[i].x = v.x() - offset.x();
+        ret.points[i].y = v.y() - offset.y();
+        ret.points[i].z = 0.0;//v.z() - offset.z();
+    }
+}
 bool PFLocalization::__match(const void (*callback)(std::vector<Line> &, pcl::PointCloud<pcl::PointXYZ> &cloud))
 {
     try
@@ -162,10 +180,11 @@ bool PFLocalization::__match(const void (*callback)(std::vector<Line> &, pcl::Po
             //mt.converged = true;
             return false;
         }
-        pcl::PointCloud<pcl::PointXYZ> aligned_cloud;
+        pcl::PointCloud<pcl::PointXYZ> aligned_cloud,aligned_feature;
         linesToPointCloud(lines, current_feature_.cloud, laser2base_);
+        alignLastFeature(aligned_feature);
         icp->setInputSource(current_feature_.cloud.makeShared());
-        icp->setInputTarget(last_features_.cloud.makeShared());
+        icp->setInputTarget(aligned_feature.makeShared());
         icp->align(aligned_cloud);
         if (callback)
             callback(lines, aligned_cloud);
@@ -238,6 +257,7 @@ bool PFLocalization::__match(const void (*callback)(std::vector<Line> &, pcl::Po
         if(keyframes.empty() || dist >= keyframe_sample_linear_ || yaw >= keyframe_sample_angular_)
         {
             //current_kf_.scan = current_scan_;
+            //pf_filter_->Resample();
             keyframes.push_back(current_kf_);
             kf_idx_++;
             current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
@@ -255,7 +275,29 @@ bool PFLocalization::__match(const void (*callback)(std::vector<Line> &, pcl::Po
     }
     return false;
 }
+void PFLocalization::visualize(ros::Publisher& pub)
+{
+    MCPdf<ColumnVector> *posterior = pf_filter_->PostGet();
+    std::vector<WeightedSample<ColumnVector>> samples = posterior->ListOfSamplesGet();
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    cloud.height = 1;
+    cloud.is_dense = true;
+    cloud.points.resize(samples.size());
+    cloud.width = samples.size();
+    for (int i = 0; i < samples.size(); i++)
+    {
+        ColumnVector pos = samples.at(i).ValueGet();
+        cloud.points[i].x = pos(1);
+        cloud.points[i].y = pos(2);
+        cloud.points[i].z = 0.0;
+    }
+    sensor_msgs::PointCloud2 pcloud;
+    pcl::toROSMsg(cloud, pcloud);
+    pcloud.header.frame_id = global_frame_;
+    pcloud.header.stamp = ros::Time::now();
+    pub.publish(pcloud);
 
+}
 void PFLocalization::getLastEstimatedPose( dslam_tf_t& pose)
 {
     MCPdf<ColumnVector> *posterior = pf_filter_->PostGet();

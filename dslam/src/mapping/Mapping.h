@@ -24,13 +24,12 @@ namespace dslam{
             //void rotateSubMap(const nav_msgs::OccupancyGrid&,nav_msgs::OccupancyGrid&,Eigen::Quaterniond);
             //void resolveMapsize(Eigen::Vector3d,const nav_msgs::OccupancyGrid&);
             //void mergeSubmap(const nav_msgs::OccupancyGrid&,Eigen::Vector3d);
-            
+            void resolveMapsize(Eigen::Vector3d theirpose, double w, double h);
             bool castToObstacle(double , double , vector<size_t> &,  dslam_tf_t& _tf);
             void updatePoints(double, bool  , const vector<size_t> &, vector<int8_t> &, vector<double> &);
             void updateOccupancy(double, size_t idx, vector<int8_t> &, vector<double> &);
             void fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf);
 
-            std::map<int, nav_msgs::OccupancyGrid> submaps_;
            //probability that a point is occupied from laser data 
             double p_occupied_w_observation_;
             // occupance probability of a free point calculated by

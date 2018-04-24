@@ -10,7 +10,7 @@ PFLocalPlanner:
   min_obstacle_size_px: 10
   verbose: true
   local_map_th: 100
-  max_linear_v: 0.4
+  max_linear_v: 0.2
   max_angular_v: 1.2
   recovery_attemps: 10
   field_w: 4.0

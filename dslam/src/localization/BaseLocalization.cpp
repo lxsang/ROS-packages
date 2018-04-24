@@ -20,19 +20,31 @@ BaseLocalization::~BaseLocalization()
 void BaseLocalization::extractLines(std::vector<Line> &lines_)
 {
     std::vector<Line> lines;
-    line_extraction_.extractLines(lines);
-    boost::array<double, 2> org;
+    line_extraction_.extractLines(lines_);
+    //return;
+    /*boost::array<double, 2> org;
     org[0] = 0.0;
     org[1] = 0.0;
-    for (std::vector<Line>::const_iterator cit = lines.begin(); cit != lines.end(); ++cit)
+    for (std::vector<Line>::const_iterator cit = lines.begin(); cit != lines.end(); cit++)
     {
         Line l(org, cit->getStart());
-        if(l.length() > max_line_dist_)
-            l = Line(org, cit->getEnd());
         if(l.length() < max_line_dist_)
             lines_.push_back(l);
-        lines_.push_back(*cit);
-    }
+         
+        l = Line(org, cit->getEnd());
+        if(l.length() < max_line_dist_)
+            lines_.push_back(l);
+        
+        l = Line(org, cit->getCenter());
+        if(l.length() < max_line_dist_)
+            lines_.push_back(l);
+        
+        l = Line(org, cit->getPerpendicular());
+        if(l.length() < max_line_dist_)
+            lines_.push_back(l);
+        
+       lines_.push_back(*cit);
+    }*/
 }
 void BaseLocalization::configure(Configuration &cnf)
 {
@@ -198,7 +210,7 @@ void BaseLocalization::publishOdomTF()
     _tf.rotation.z() = pose_.orientation.z;
     _tf.rotation.w() = pose_.orientation.w;
     
-    _tf.rotation = _tf.rotation*current_kf_.tf.rotation;
+    _tf.rotation = current_kf_.tf.rotation*_tf.rotation;
 
     //std::cout << "Publishing Odom "  << std::endl;
     static tf::TransformBroadcaster br;
@@ -218,7 +230,7 @@ void BaseLocalization::updatePose()
     while(it != keyframes.end())
     {
         _tf.translation += it->tf.translation;
-        _tf.rotation *= it->tf.rotation;
+        _tf.rotation = it->tf.rotation*_tf.rotation;
         //_tf.rotation.normalize();
         if(publish_odom_)
         {
@@ -250,7 +262,8 @@ void BaseLocalization::getTransform(tf::Transform& transform)
     q.z() = pose_.orientation.z;
     q.w() = pose_.orientation.w;
     q = q*diff.rotation.inverse();
-    tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
+    //tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
+    tf::Quaternion qad(0.0, 0.0,0.0,1.0);
     transform.setRotation(qad);
 }
 void BaseLocalization::getLastKnownPose(geometry_msgs::Pose& pose)
@@ -273,10 +286,29 @@ void BaseLocalization::linesToPointCloud(std::vector<Line>& lines, pcl::PointClo
         size += points.size();
         cloud.points.insert(cloud.points.end(), points.begin(), points.end());
     }
-    pcl::PointXYZ ori;
-    ori.x = 0.0;
-    ori.y = 0.0;
-    cloud.points.push_back(ori);
+    //pcl::PointXYZ ori;
+    //ori.x = 0.0;
+    //ori.y = 0.0;
+    //cloud.points.push_back(ori);
     cloud.width = cloud.points.size();
+}
+void BaseLocalization::scanToPointCloud(pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform& transform)
+{   
+    sensor_msgs::PointCloud2 pcloud;
+    projector_.projectLaser(current_kf_.scan, pcloud, max_line_dist_);
+    pcl::fromROSMsg(pcloud, cloud);
+    //return;
+    // now transform allpoint to the robot base
+    tf::Vector3 p;
+    for(int i = 0; i < cloud.points.size();i++)
+    {
+        p.setX(cloud.points[i].x);
+        p.setY(cloud.points[i].y);
+        p.setZ(cloud.points[i].z);
+        p = transform*p;
+        cloud.points[i].x = p.getX();
+        cloud.points[i].y = p.getY();
+        cloud.points[i].z = 0.0;
+    }
 }
 }

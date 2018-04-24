@@ -11,6 +11,7 @@
         <!--remap from="/tf" to="/tf1"/-->
     </node>
    
+
    <include file="$(find turtlebot_bringup)/launch/includes/robot.launch.xml">
     <arg name="base" value="$(arg base)" />
     <arg name="stacks" value="$(arg stacks)" />

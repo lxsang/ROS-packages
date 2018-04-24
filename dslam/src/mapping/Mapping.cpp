@@ -50,38 +50,45 @@ void Mapping::configure(Configuration &cnf)
 }
 void Mapping::buildFrom(std::list<key_frame_t> &keyframes)
 {
-    map_.data.assign(map_.info.width * map_.info.height, -1);
-    log_odds_.assign(map_.info.width * map_.info.height, 0);
+    // estimate the map size first
+    std::map<int, dslam_tf_t> pose_cache;
+
     auto it = keyframes.begin();
-    dslam_tf_t _tf, _tf1;
+    dslam_tf_t _tf;
     _tf.translation = Eigen::Vector3d(0.0, 0.0, 0.0);
     _tf.rotation = Eigen::Quaterniond::Identity();
     while (it != keyframes.end())
     {
-        //map_.data.assign(map_.info.width * map_.info.height, -1);
-        //log_odds_.assign(map_.info.width * map_.info.height, 0);
         _tf.translation += it->tf.translation;
-        _tf.rotation *= it->tf.rotation;
+        _tf.rotation = it->tf.rotation*_tf.rotation;
+        pose_cache[it->index] = _tf;
+        resolveMapsize(_tf.translation,2*max_laser_range_, 2*max_laser_range_);
+        it++;
+    }
 
-        _tf1.rotation = _tf.rotation*it->base2laser.rotation;
-        // rotate base2laser vector around origin
-        Vector3d rotated_v;
-        double angle = angles::normalize_angle(_tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
-        double x = it->base2laser.translation(0);
-        double y = it->base2laser.translation(1);
+    map_.data.assign(map_.info.width * map_.info.height, -1);
+    log_odds_.assign(map_.info.width * map_.info.height, 0);
+    it = keyframes.begin();
+    
+    while (it != keyframes.end())
+    {
+        if ( pose_cache.find(it->index) != pose_cache.end() ) {
+            _tf.rotation = it->base2laser.rotation*pose_cache[it->index].rotation;
+            // rotate base2laser vector around origin
+            Vector3d rotated_v;
+            double angle = angles::normalize_angle(pose_cache[it->index].rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
+            double x = it->base2laser.translation(0);
+            double y = it->base2laser.translation(1);
 
-        rotated_v(0) = (x * cos(angle)) - ( (- y) * sin(angle));
-        rotated_v(1) = ((- y) * cos(angle)) - (x  * sin(angle)) ;
-        rotated_v(2) = 0.0;
+            rotated_v(0) = (x * cos(angle)) - ( (- y) * sin(angle));
+            rotated_v(1) = ((- y) * cos(angle)) - (x  * sin(angle)) ;
+            rotated_v(2) = 0.0;
+            
+            _tf.translation = pose_cache[it->index].translation + rotated_v;
+            
+            fromScan(it->scan,_tf);
+        }
         
-        _tf1.translation = _tf.translation + rotated_v;
-        
-        fromScan(it->scan,_tf1);
-        // now merge the submap to the global map using _tf
-        //nav_msgs::OccupancyGrid out;
-        //rotateSubMap(submaps_[it->index], out, _tf.rotation);
-        //resolveMapsize(_tf.translation, out);
-        //mergeSubmap(out, _tf.translation);
         it++;
     }
 }
@@ -130,8 +137,8 @@ void Mapping::rotateSubMap(const nav_msgs::OccupancyGrid &in, nav_msgs::Occupanc
             }
             out.data[ri + rj * size] = in.data[i + j * in.info.width];
         }
-}
-void Mapping::resolveMapsize(Eigen::Vector3d theirpose, const nav_msgs::OccupancyGrid &msg)
+}*/
+void Mapping::resolveMapsize(Eigen::Vector3d theirpose, double range_x, double range_y)
 {
     double minx, miny, maxx, maxy;
     double tx, ty, lx, ly;
@@ -139,16 +146,16 @@ void Mapping::resolveMapsize(Eigen::Vector3d theirpose, const nav_msgs::Occupanc
 
     delta.x = theirpose(0);
     delta.y = theirpose(1);
-    tx = msg.info.origin.position.x + delta.x;
-    ty = msg.info.origin.position.y + delta.y;
+    tx = delta.x - range_x/2.0;
+    ty = delta.y - range_y/2.0;
 
     minx = map_.info.origin.position.x < tx ? map_.info.origin.position.x : tx;
     miny = map_.info.origin.position.y < ty ? map_.info.origin.position.y : ty;
 
-    tx = (double)msg.info.width * msg.info.resolution - fabs(msg.info.origin.position.x);
+    tx = range_x/2.0;
     tx = tx + delta.x;
 
-    ty = (double)msg.info.height * msg.info.resolution - fabs(msg.info.origin.position.y);
+    ty = range_y/2.0;
     ty = ty + delta.y;
 
     lx = (double)map_.info.width * map_.info.resolution - fabs(map_.info.origin.position.x);
@@ -166,13 +173,14 @@ void Mapping::resolveMapsize(Eigen::Vector3d theirpose, const nav_msgs::Occupanc
         map_.info.origin.position.x = minx;
         map_.info.origin.position.y = miny;
     }
-}*/
+}
+
 void Mapping::fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf)
 {
     const int ncol = map_.info.width;
 
-    int width = map_.info.width;
-    int height = map_.info.height;
+    //int width = map_.info.width;
+    //int height = map_.info.height;
     //log_odds_.assign(map_.info.width * map_.info.height, 0);
     // Update occupancy.
     for (size_t i = 0; i < scan.ranges.size(); ++i)
@@ -204,7 +212,7 @@ void Mapping::updatePoints(double p, bool desc, const vector<size_t> &indexes, v
 {
     double _p = p;
     int s = indexes.size();
-    s = desc?s/2:s;
+    s = desc?s/3:s;
     for (int i = 0; i < s; i++)
     {
         if(desc)
@@ -284,8 +292,8 @@ bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast
         return false;
     }
     Vector3d pos = _tf.translation;
-    int x0 = round(pos(0)/map_.info.resolution + map_.info.width/2);
-    int y0 = round(pos(1)/map_.info.resolution + map_.info.height/2);
+    int x0 = round((pos(0) + fabs(map_.info.origin.position.x))/map_.info.resolution);
+    int y0 = round((pos(1) + fabs(map_.info.origin.position.y))/map_.info.resolution);
     double yaw = angles::normalize_angle(angle + _tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
     const vector<size_t> &ray_to_map_border = ray_caster_.getRayCastToMapBorderFrom(yaw,
                                                                                 map_.info.height, map_.info.width, 1.1 * angle_resolution_, x0, y0);
