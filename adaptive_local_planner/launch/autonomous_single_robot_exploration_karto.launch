@@ -1,5 +1,3 @@
-
-
 <launch>
   <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
@@ -8,7 +6,6 @@
          <param name="base_frame" value="/base_link" />
         <param name="pose_topic_name" value="/posegmapping" />
         <param name="publish_frequency" value="10.0" />
-
   </node-->
 
   <node  pkg="urg_node" type="urg_node" name="urg_node" >
@@ -36,7 +33,7 @@
 
 
   <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
-  <!--node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
+  <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global">
     
     <rosparam ns="costmap" subst_value="true">
       global_frame: /map
@@ -45,7 +42,6 @@
       publish_frequency: 1.0
       rolling_window: false
       always_send_full_costmap: true
-
       # Map management parameters
       unknown_cost_value: 255
       
@@ -59,7 +55,6 @@
         subscribe_to_updates: true 
       inflation:
         inflation_radius: 0.3
-
     </rosparam>
   </node>
   
@@ -67,13 +62,12 @@
       <param name="map" value="/costmap_for_exploration_global/costmap/costmap"/>
       <param name="min_frontier_size_px" value="10"/>
     </node>
-
     <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation" output="screen">
       <param name="goal_tolerance" value="0.5"/>
       <param name="frontier_tolerance" value="0.05"/>
       <param name="random_frontier" value="false"/>
       <param name="cmd_vel_topic" value="/mobile_base/commands/velocity"/>
-    </node-->    
+    </node>    
   
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
 
