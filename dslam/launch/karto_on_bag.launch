@@ -7,7 +7,7 @@
     <node pkg="rosbag" type="play" name="player1" output="screen" args="--quiet --clock $(find dslam)/launch/testdata-2018-04-11-15-11-59.bag">
         <!--remap from="/submap_list" to = "/submap_list_1" />
         <remap from ="/imu" to = "imu_1" /-->
-        <!--remap from="/tf" to="/tf1"/-->
+        <remap from="/tf" to="/tf1"/>
     </node>
    
    <include file="$(find turtlebot_bringup)/launch/includes/robot.launch.xml">

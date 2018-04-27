@@ -262,15 +262,15 @@ void BaseLocalization::getTransform(tf::Transform& transform)
     q.z() = pose_.orientation.z;
     q.w() = pose_.orientation.w;
     q = q*diff.rotation.inverse();
-    //tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
-    tf::Quaternion qad(0.0, 0.0,0.0,1.0);
+    tf::Quaternion qad(q.x(), q.y(),q.z(),q.w());
+    //tf::Quaternion qad(0.0, 0.0,0.0,1.0);
     transform.setRotation(qad);
 }
 void BaseLocalization::getLastKnownPose(geometry_msgs::Pose& pose)
 {
     pose = pose_;
 }
-void BaseLocalization::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform& laser2base)
+void BaseLocalization::linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::Transform& laser2base)
 {
     //pcl::PointCloud<pcl::PointXYZ> cloud;
     //cloud.width = lines.size()*3;

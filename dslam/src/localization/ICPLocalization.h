@@ -15,6 +15,20 @@ namespace dslam {
         private:
             void alignLastFeature(pcl::PointCloud<pcl::PointXYZ>&);
     };
+
+    class ICPLocalization1: public BaseLocalization{
+
+        public:
+            ICPLocalization1();
+            virtual ~ICPLocalization1(){};
+            virtual void configure(Configuration&);
+            virtual void visualize(ros::Publisher&){};
+        protected:
+            virtual bool __match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&));
+
+        private:
+            void alignLastFeature(pcl::PointCloud<pcl::PointXYZ>&);
+    };
 }
 
 #endif

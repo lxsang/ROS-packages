@@ -19,11 +19,11 @@ local config = {
             max_dist = 6.0 -- max laser range
         },
         icp = {
-            max_distance = 0.03, -- m correspondence distance
+            max_distance = 0.05, -- m correspondence distance
             max_iteration = 200, -- maximum number of iterations 
             tf_epsilon = 1e-9, -- transformation epsilon
             eu_fitness = 0.1, -- the euclidean distance difference epsilon
-            sample_fitness = 0.3,-- m
+            sample_fitness = 0.5,-- m
             use_non_linear = true
         },
         pf = {
@@ -47,13 +47,47 @@ local config = {
             PRIOR_COV_THETA = (PI/8)*(PI/8),
             NUM_SAMPLES = 150
         },
-        keyframe_sample_linear = 0.7,
-        keyframe_sample_angular = 0.7,
+        scan_matcher = {
+            use_imu = false,
+            use_odom = true,
+            max_angular_correction_deg = 45.0,
+            max_linear_correction = 0.5,
+            max_iterations = 50,
+            epsilon_xy = 1e-6,
+            epsilon_theta = 1e-6,
+            max_correspondence_dist = 0.07,
+            sigma = 0.01,
+            use_corr_tricks = true,
+            restart = false,
+            restart_threshold_mean_error=0.01,
+            restart_dt=1.0,
+            restart_dtheta=0.1,
+            clustering_threshold=0.25,
+            orientation_neighbourhood=20.0,
+            use_point_to_line_distance=true,
+            do_alpha_test = false,
+            do_alpha_test_thresholdDeg=20.0,
+            outliers_maxPerc=0.9,
+            outliers_adaptive_order=0.7,
+            outliers_adaptive_mult=2.0,
+            outliers_remove_doubles=true,
+            do_visibility_test = false,
+            do_compute_covariance = true,
+            debug_verify_tricks=false,
+            use_ml_weights=false,
+            use_sigma_weights = false,
+            confidence_factor = 1.9
+        },
+        keyframe_sample_linear = 0.1,
+        keyframe_sample_angular = 10.0 * (PI / 180.0),
         global_frame = "map",
         laser_frame = "laser",
         robot_base = "base_footprint",
         odom_frame = "odom",
-        publish_odom = false
+        publish_odom = true,
+        scan_topic = "/scan",
+        odom_topic = "/odom",
+        imu_topic = "/mobile_base/sensors/imu_data"
     },
     mapping = {
         p_occupied_with_observation=0.9,
@@ -68,7 +102,7 @@ local config = {
         init_height = 1.0 --m
     },
     line_seg_topic = "/line_markers",
-    frequency = 15,
+    frequency = 25,
     use_particle_filter = false,
     map_topic = "/pmap"
 }

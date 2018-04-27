@@ -19,6 +19,7 @@ find_package(PCL REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(catkin REQUIRED COMPONENTS tf)
 pkg_check_modules(BFL REQUIRED orocos-bfl)
+pkg_check_modules(csm REQUIRED csm)
 #find_package(orocos-bfl REQUIRED)
 ## System dependencies are found with CMake's conventions
  find_package(Boost REQUIRED COMPONENTS system)
@@ -130,10 +131,12 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
  ${PCL_INCLUDE_DIRS}
  ${BFL_INCLUDE_DIRS}
+ ${csm_INCLUDE_DIRS}
 )
 link_directories(${PCL_LIBRARY_DIRS})
 link_directories(${BFL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
+link_directories(${csm_LIBRARY_DIRS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -155,9 +158,11 @@ add_library(dslam
     src/3rd/line_extraction/line_extraction.cpp
     src/localization/BaseLocalization.cpp
     src/localization/ICPLocalization.cpp
+    src/localization/ICPLocalization1.cpp
     src/localization/NonLinearSystemPDF.cpp
     src/localization/NonLinearMeasurementPDF.cpp
     src/localization/PFLocalization.cpp
+    src/localization/ScanMatcher.cpp
     src/3rd/raycaster/map_ray_caster.cpp
     src/3rd/laser_geometry/laser_geometry.cpp
     src/mapping/SubmapBuilder.cpp
@@ -167,6 +172,7 @@ target_link_libraries(dslam
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES} 
     ${BFL_LIBRARIES}
+    ${csm_LIBRARIES}
     ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
 
 #add_custom_command(TARGET node_config
@@ -176,6 +182,9 @@ target_link_libraries(dslam
 
 add_executable(dslam_node src/nodes/dslam.cpp)
 target_link_libraries(dslam_node  dslam)
+
+add_executable(sm_node src/nodes/scan_matching.cpp)
+target_link_libraries(sm_node  dslam)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
