@@ -28,7 +28,7 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan, 
 std::queue<sensor_data_t> data_queue;
 BaseLocalization *matcher_;
 PFLocalization pf_matcher;
-ICPLocalization icp_matcher;
+ICPLocalization1 icp_matcher;
 ros::Publisher marker_publisher_, local_map_pub;
 ros::Publisher cloudpublisher_, trajectory_p_, particles_p_;
 geometry_msgs::Pose pose;
@@ -90,7 +90,7 @@ const void callback(std::vector<Line> &lines, pcl::PointCloud<pcl::PointXYZ> &cl
     visualization_msgs::Marker marker_msg;
     sensor_msgs::PointCloud2 pcloud;
     pcl::toROSMsg(cloud, pcloud);
-    pcloud.header.frame_id = robot_base_frame;
+    pcloud.header.frame_id = "odom";
     pcloud.header.stamp = ros::Time::now();
     populateMarkerMsg(lines, marker_msg);
     marker_publisher_.publish(marker_msg);
@@ -214,7 +214,7 @@ int main(int argc, char **argv)
     matcher_->configure(localisation);
 
     boost::thread t1(&run);
-    boost::thread t2(&localmapping);
+    //boost::thread t2(&localmapping);
     boost::thread t3(&publish_tranform);
     //t1.join();
 

@@ -98,7 +98,7 @@ const boost::array<double, 2>& Line::getStart() const
 {
   return start_;
 }
-void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform& transform, int size, double lim) const
+void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::Transform& transform, int size, double lim) const
 {
   tf::Vector3 nend, nstart;
   nend.setX(end_[0]);
@@ -134,6 +134,13 @@ void Line::asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&
     cloud.push_back(point);
 
   }
+  point.x = nstart.x();
+  point.y = nstart.y();
+  cloud.push_back(point);
+
+  point.x = nend.x();
+  point.y = nend.y();
+  cloud.push_back(point);
   /*cloud.resize(3);
   tf::Vector3 landmark;
   landmark.setX(end_[0]);

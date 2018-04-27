@@ -10,7 +10,6 @@
         <!--remap from="/tf" to="/tf1"/ $(find dslam)/launch/testdata-2018-04-11-15-11-59.bag -->
         <!--remap from="/tf" to="/tf1"/-->
     </node>
-   
 
    <include file="$(find turtlebot_bringup)/launch/includes/robot.launch.xml">
     <arg name="base" value="$(arg base)" />
@@ -20,7 +19,7 @@
 
    <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
 
-    <node name="lines_seg" pkg="dslam" type="dslam_node" output="screen" >
+    <node name="lines_seg" pkg="dslam" type="sm_node" output="screen" >
         <param name="conf_file" value="$(find dslam)/launch/config.lua"/>
     </node>
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>

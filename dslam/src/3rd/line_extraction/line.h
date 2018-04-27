@@ -33,7 +33,7 @@ public:
   const boost::array<double, 2> &getStart() const;
   // Methods for line fitting
   double distToPoint(unsigned int);
-  void asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::StampedTransform&,int, double) const;
+  void asPointCloud(std::vector<pcl::PointXYZ>& cloud, tf::Transform&,int, double) const;
   void endpointFit();
   void leastSqFit();
   double length() const;

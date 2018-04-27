@@ -36,7 +36,7 @@ namespace dslam
             virtual bool __match(const void (*)(std::vector<Line>&, pcl::PointCloud<pcl::PointXYZ>&))= 0;
             void extractLines(std::vector<Line> &lines);
             void cacheData(sensor_msgs::LaserScan&);
-            void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
+            void linesToPointCloud(std::vector<Line>& lines, pcl::PointCloud<pcl::PointXYZ>& cloud, tf::Transform&);
             void scanToPointCloud(pcl::PointCloud<pcl::PointXYZ>& cloud, tf::StampedTransform&);
             landmark_t last_features_,current_feature_;
             //pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> icp;
