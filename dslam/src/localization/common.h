@@ -6,6 +6,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 #include <angles/angles.h>
+#include <tf/transform_datatypes.h>
 typedef struct{
     pcl::PointCloud<pcl::PointXYZ> cloud;
     Eigen::Quaterniond orientation;
@@ -22,4 +23,11 @@ typedef struct{
     sensor_msgs::LaserScan scan;
     int index;
 } key_frame_t;
+typedef struct {
+    tf::Transform f2b; // fixed frame to base
+    tf::Transform odom; // odometry
+    tf::Transform b2l; // laser to base
+    sensor_msgs::LaserScan scan; // scan
+    int index;
+} kf_t;
 #endif

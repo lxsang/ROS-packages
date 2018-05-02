@@ -38,7 +38,7 @@ namespace dslam {
             ~ ScanMatcher();
             void configure(Configuration &, ros::NodeHandle &);
             void getLastKnownPose(geometry_msgs::Pose& pose);
-            std::list<key_frame_t> keyframes;
+            std::list<kf_t> keyframes;
         private:
 
             ros::Subscriber scan_subscriber_;
@@ -70,7 +70,6 @@ namespace dslam {
             double kf_dist_linear_sq_;
             double kf_dist_angular_;
             double confidence_factor_;
-            int kf_idx_;
             // **** What predictions are available to speed up the ICP?
             // 1) imu - [theta] from imu yaw angle - /imu topic
             // 2) odom - [x, y, theta] from wheel odometry - /odom topic
@@ -90,7 +89,7 @@ namespace dslam {
             tf::Transform f2b_;    // fixed-to-base tf (pose of base frame in fixed frame)
             tf::Transform f2b_kf_; // pose of the last keyframe scan in fixed frame
 
-            ros::Time last_icp_time_;
+            //ros::Time last_icp_time_;
 
             sensor_msgs::Imu latest_imu_msg_;
             sensor_msgs::Imu last_used_imu_msg_;
@@ -104,7 +103,7 @@ namespace dslam {
             sm_result output_;
             LDP prev_ldp_scan_;
 
-             key_frame_t current_kf_;
+            kf_t current_kf_;
             // **** methods
 
             void processScan(LDP& curr_ldp_scan, const ros::Time& time);
@@ -119,10 +118,8 @@ namespace dslam {
             void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
             bool getBaseToLaserTf (const std::string& frame_id);
 
-            bool newKeyframeNeeded(const tf::Transform& d);
-
             void getPrediction(double& pr_ch_x, double& pr_ch_y,
-                            double& pr_ch_a, double dt);
+                            double& pr_ch_a);
 
             void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
     };

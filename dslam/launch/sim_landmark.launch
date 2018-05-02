@@ -55,7 +55,7 @@
     <include file="$(find gazebo_sim)/launch/includes/move_base.launch.xml" />
 
 
-  <!--node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
+  <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
       <param name="map" value="/costmap_for_exploration_global/costmap/costmap"/>
       <param name="min_frontier_size_px" value="10"/>
     </node>
@@ -70,10 +70,10 @@
         <param name="th_value" value="55"/>
         <param name="map_in_topic" value="/pmap"/>
         <param name="map_out_topic" value="/map"/>
-    </node-->
+    </node>
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>
 
-    <node name="lines_seg" pkg="dslam" type="sm_node" output="screen" >
+    <node name="lines_seg" pkg="dslam" type="dslam_node" output="screen" >
         <param name="conf_file" value="$(find dslam)/launch/config.lua"/>
     </node>
 </launch>

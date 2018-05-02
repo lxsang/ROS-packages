@@ -48,27 +48,46 @@ void Mapping::configure(Configuration &cnf)
         ray_caster_.getRayCastToMapBorder(a, h, w, 0.9 * angle_resolution_);
     }*/
 }
-void Mapping::buildFrom(std::list<kf_t> &keyframes)
+void Mapping::buildFrom(std::list<key_frame_t> &keyframes)
 {
+    // estimate the map size first
+    std::map<int, dslam_tf_t> pose_cache;
+
     auto it = keyframes.begin();
+    dslam_tf_t _tf;
+    _tf.translation = Eigen::Vector3d(0.0, 0.0, 0.0);
+    _tf.rotation = Eigen::Quaterniond::Identity();
     while (it != keyframes.end())
     {
-        Vector3d pose;
-        pose(0) = it->f2b.getOrigin().getX();
-        pose(1) = it->f2b.getOrigin().getY();
-        pose(2) = it->f2b.getOrigin().getZ();
-        resolveMapsize(pose,2*max_laser_range_, 2*max_laser_range_);
+        _tf.translation += it->tf.translation;
+        _tf.rotation = it->tf.rotation*_tf.rotation;
+        pose_cache[it->index] = _tf;
+        resolveMapsize(_tf.translation,2*max_laser_range_, 2*max_laser_range_);
         it++;
     }
 
     map_.data.assign(map_.info.width * map_.info.height, -1);
     log_odds_.assign(map_.info.width * map_.info.height, 0);
     it = keyframes.begin();
-    tf::Transform f2l;
+    
     while (it != keyframes.end())
     {
-        f2l = it->f2b*it->b2l;
-        fromScan(it->scan,f2l);
+        if ( pose_cache.find(it->index) != pose_cache.end() ) {
+            _tf.rotation = it->base2laser.rotation*pose_cache[it->index].rotation;
+            // rotate base2laser vector around origin
+            Vector3d rotated_v;
+            double angle = angles::normalize_angle(pose_cache[it->index].rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
+            double x = it->base2laser.translation(0);
+            double y = it->base2laser.translation(1);
+
+            rotated_v(0) = (x * cos(angle)) - ( (- y) * sin(angle));
+            rotated_v(1) = ((- y) * cos(angle)) - (x  * sin(angle)) ;
+            rotated_v(2) = 0.0;
+            
+            _tf.translation = pose_cache[it->index].translation + rotated_v;
+            
+            fromScan(it->scan,_tf);
+        }
         
         it++;
     }
@@ -156,7 +175,7 @@ void Mapping::resolveMapsize(Eigen::Vector3d theirpose, double range_x, double r
     }
 }
 
-void Mapping::fromScan(const sensor_msgs::LaserScan &scan, tf::Transform & _tf)
+void Mapping::fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf)
 {
     const int ncol = map_.info.width;
 
@@ -263,7 +282,7 @@ void Mapping::updateOccupancy(double p, size_t idx, vector<int8_t> &occupancy, v
     }
 }
 
-bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast,  tf::Transform & _tf)
+bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast,  dslam_tf_t& _tf)
 {
     // Do not consider a 0-length range.
 
@@ -272,9 +291,10 @@ bool Mapping::castToObstacle(double angle, double range, vector<size_t> &raycast
         raycast.clear();
         return false;
     }
-    int x0 = round((_tf.getOrigin().getX() + fabs(map_.info.origin.position.x))/map_.info.resolution);
-    int y0 = round((_tf.getOrigin().getY() + fabs(map_.info.origin.position.y))/map_.info.resolution);
-    double yaw = angles::normalize_angle(angle + tf::getYaw(_tf.getRotation()));
+    Vector3d pos = _tf.translation;
+    int x0 = round((pos(0) + fabs(map_.info.origin.position.x))/map_.info.resolution);
+    int y0 = round((pos(1) + fabs(map_.info.origin.position.y))/map_.info.resolution);
+    double yaw = angles::normalize_angle(angle + _tf.rotation.toRotationMatrix().eulerAngles(0,1,2)[2]);
     const vector<size_t> &ray_to_map_border = ray_caster_.getRayCastToMapBorderFrom(yaw,
                                                                                 map_.info.height, map_.info.width, 1.1 * angle_resolution_, x0, y0);
     // range in pixel length. The ray length in pixels corresponds to the number

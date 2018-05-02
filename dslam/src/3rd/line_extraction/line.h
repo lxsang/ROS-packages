@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <boost/array.hpp>
-#include <pcl/registration/icp.h>
+#include <pcl/point_types.h>
 #include <pcl/common/projection_matrix.h>
 #include <tf/transform_listener.h>
 #include "3rd/line_extraction/utilities.h"
