@@ -44,6 +44,7 @@ void ScanMatcher::configure(Configuration &config, ros::NodeHandle &nh)
     // If more than one is enabled, priority is imu > odom
 
     confidence_factor_ = scnf.get<double>("confidence_factor",3.0);
+    max_laser_range_ = scnf.get<double>("max_laser_range", 10.0);
     use_imu_ = scnf.get<bool>("use_imu", true);
     use_odom_ = scnf.get<bool>("use_odom", true);
 
@@ -144,6 +145,8 @@ void ScanMatcher::configure(Configuration &config, ros::NodeHandle &nh)
     // correspondence by 1/sigma^2
     input_.use_sigma_weights = scnf.get<bool>("use_sigma_weights", false) ? 1 : 0;
 
+    // turn off the gls error handler that may cause the node to quit
+    gsl_set_error_handler_off();
     // subscribers
 
     if (use_imu_)
@@ -164,6 +167,8 @@ void ScanMatcher::configure(Configuration &config, ros::NodeHandle &nh)
 ScanMatcher::~ScanMatcher()
 {
     if(synchronizer_) delete synchronizer_;
+    if(scan_sync_) delete scan_sync_;
+    if(odom_sync_) delete odom_sync_;
 }
 
 void ScanMatcher::imuCallback(const sensor_msgs::Imu::ConstPtr &imu_msg)
@@ -201,7 +206,7 @@ void ScanMatcher::scanOdomCallBack(const sensor_msgs::LaserScanConstPtr &scan_ms
 void ScanMatcher::scanCallback(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
 {
     // **** if first scan, cache the tf from base to the scanner
-
+    boost::mutex::scoped_lock(mutex_);
     if (!initialized_)
     {
         createCache(scan_msg); // caches the sin and cos of all angles
@@ -226,6 +231,7 @@ void ScanMatcher::scanCallback(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
 
 void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
 {
+    boost::mutex::scoped_lock(mutex_);
     ros::WallTime start = ros::WallTime::now();
 
     // CSM is used in the following way:
@@ -383,20 +389,10 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
             latest_odom_msg_.pose.pose.orientation.y,
             latest_odom_msg_.pose.pose.orientation.z,
             latest_odom_msg_.pose.pose.orientation.w);
-        tf::Transform f2o;
         createTfFromXYTheta(latest_odom_msg_.pose.pose.position.x,latest_odom_msg_.pose.pose.position.y,
-            tf::getYaw(q1), f2o );
-        current_kf_.odom = f2o;
-        f2o = f2b_*f2o.inverse();
-        tf::StampedTransform transform_msg(f2o, time, fixed_frame_, latest_odom_msg_.header.frame_id );
-        tf_broadcaster_.sendTransform(transform_msg);
+            tf::getYaw(q1), current_kf_.odom );
     }
-    else
-    {
-        tf::StampedTransform transform_msg(f2b_, time, fixed_frame_, base_frame_ );
-        tf_broadcaster_.sendTransform(transform_msg);
-    }
-
+    
     // select key frame
     tf::Transform diff = f2b_ *current_kf_.f2b.inverse();
     double dist = 
@@ -445,6 +441,24 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
     ROS_DEBUG("Scan matcher total duration: %.1f ms", dur);
 }
 
+void ScanMatcher::publishTf()
+{
+    if(keyframes.empty()) return;
+
+    if(use_odom_)
+    {
+        auto it = keyframes.back();
+        tf::Transform f2o;
+        f2o = it.f2b*it.odom.inverse();
+        tf::StampedTransform transform_msg(f2o, ros::Time::now(), fixed_frame_, latest_odom_msg_.header.frame_id );
+        tf_broadcaster_.sendTransform(transform_msg);
+    }
+    else
+    {
+        tf::StampedTransform transform_msg(f2b_, ros::Time::now(), fixed_frame_, base_frame_ );
+        tf_broadcaster_.sendTransform(transform_msg);
+    }
+}
 void ScanMatcher::getLastKnownPose(geometry_msgs::Pose& pose)
 {
     pose.position.x =  f2b_.getOrigin().getX();
@@ -461,14 +475,14 @@ void ScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_ms
 {
     unsigned int n = scan_msg->ranges.size();
     ldp = ld_alloc_new(n);
-
+    //ROS_WARN("max laser rang is %f\n", max_laser_range_);
     for (unsigned int i = 0; i < n; i++)
     {
         // calculate position in laser frame
 
         double r = scan_msg->ranges[i];
 
-        if (r > scan_msg->range_min && r < scan_msg->range_max)
+        if (r > scan_msg->range_min && r < max_laser_range_) //scan_msg->range_max
         {
             // fill in laser scan data
 

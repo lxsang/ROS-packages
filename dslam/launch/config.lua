@@ -1,4 +1,5 @@
 local PI = 3.1415926535898
+local sim = true
 local config = {
     scan_topic = "/scan",
     keypoint_topic = "keypoints",
@@ -55,7 +56,8 @@ local config = {
             debug_verify_tricks=false,
             use_ml_weights=false,
             use_sigma_weights = false,
-            confidence_factor = 1.8
+            confidence_factor = 1.8,
+            max_laser_range = 8.0
         },
         keyframe_sample_linear = 0.5,
         keyframe_sample_angular = 30.0 * (PI / 180.0),
@@ -84,4 +86,10 @@ local config = {
     frequency = 25,
     map_topic = "/pmap"
 }
+
+if sim then
+    config.localisation.scan_matcher.max_correspondence_dist = 0.2
+    config.localisation.scan_matcher.confidence_factor = 1.8
+    config.localisation.scan_matcher.max_laser_range = 15
+end
 return config

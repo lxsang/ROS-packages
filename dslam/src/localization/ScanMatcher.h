@@ -38,6 +38,7 @@ namespace dslam {
             ~ ScanMatcher();
             void configure(Configuration &, ros::NodeHandle &);
             void getLastKnownPose(geometry_msgs::Pose& pose);
+            void publishTf();
             std::list<kf_t> keyframes;
         private:
 
@@ -70,6 +71,7 @@ namespace dslam {
             double kf_dist_linear_sq_;
             double kf_dist_angular_;
             double confidence_factor_;
+            double max_laser_range_;
             // **** What predictions are available to speed up the ICP?
             // 1) imu - [theta] from imu yaw angle - /imu topic
             // 2) odom - [x, y, theta] from wheel odometry - /odom topic
