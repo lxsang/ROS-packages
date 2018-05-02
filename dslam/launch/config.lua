@@ -18,35 +18,14 @@ local config = {
             line_scale = 0.06,
             max_dist = 6.0 -- max laser range
         },
-        icp = {
-            max_distance = 0.05, -- m correspondence distance
-            max_iteration = 200, -- maximum number of iterations 
-            tf_epsilon = 1e-9, -- transformation epsilon
-            eu_fitness = 0.1, -- the euclidean distance difference epsilon
-            sample_fitness = 0.5,-- m
-            use_non_linear = true
-        },
-        pf = {
-            MU_SYSTEM_NOISE_X = 0.0,
-            MU_SYSTEM_NOISE_Y = 0.0,
-            MU_SYSTEM_NOISE_THETA = 0.0,
-            SIGMA_SYSTEM_NOISE_X = 4e-6,
-            SIGMA_SYSTEM_NOISE_Y = 4e-6,
-            SIGMA_SYSTEM_NOISE_THETA = 4e-6 ,-- 4*PI*PI/(180*180),
-            MU_MEAS_NOISE_X = 0.0,
-            MU_MEAS_NOISE_Y = 0.0,
-            MU_MEAS_NOISE_THETA = 0.0,
-            SIGMA_MEAS_NOISE_X = 2e-5,
-            SIGMA_MEAS_NOISE_Y = 2e-5,
-            SIGMA_MEAS_NOISE_THETA = 2e-5,-- 4*PI*PI/(120*120),
-            PRIOR_MU_X = -0.01,
-            PRIOR_MU_Y = 0.01,
-            PRIOR_MU_THETA = PI/4,
-            PRIOR_COV_X = 1e-4,
-            PRIOR_COV_Y = 1e-4,
-            PRIOR_COV_THETA = (PI/8)*(PI/8),
-            NUM_SAMPLES = 150
-        },
+        --icp = {
+        --    max_distance = 0.05, -- m correspondence distance
+        --    max_iteration = 200, -- maximum number of iterations 
+        --    tf_epsilon = 1e-9, -- transformation epsilon
+        --    eu_fitness = 0.1, -- the euclidean distance difference epsilon
+        --    sample_fitness = 0.5,-- m
+        --    use_non_linear = true
+        --},
         scan_matcher = {
             use_imu = false,
             use_odom = true,
@@ -55,7 +34,7 @@ local config = {
             max_iterations = 50,
             epsilon_xy = 1e-6,
             epsilon_theta = 1e-6,
-            max_correspondence_dist = 0.07,
+            max_correspondence_dist = 0.05,
             sigma = 0.01,
             use_corr_tricks = true,
             restart = false,
@@ -63,7 +42,7 @@ local config = {
             restart_dt=1.0,
             restart_dtheta=0.1,
             clustering_threshold=0.25,
-            orientation_neighbourhood=20.0,
+            orientation_neighbourhood=40.0,
             use_point_to_line_distance=true,
             do_alpha_test = false,
             do_alpha_test_thresholdDeg=20.0,
@@ -76,10 +55,10 @@ local config = {
             debug_verify_tricks=false,
             use_ml_weights=false,
             use_sigma_weights = false,
-            confidence_factor = 1.9
+            confidence_factor = 1.8
         },
-        keyframe_sample_linear = 0.1,
-        keyframe_sample_angular = 10.0 * (PI / 180.0),
+        keyframe_sample_linear = 0.5,
+        keyframe_sample_angular = 30.0 * (PI / 180.0),
         global_frame = "map",
         laser_frame = "laser",
         robot_base = "base_footprint",
@@ -101,9 +80,8 @@ local config = {
         init_width = 1.0, --m
         init_height = 1.0 --m
     },
-    line_seg_topic = "/line_markers",
+    --line_seg_topic = "/line_markers",
     frequency = 25,
-    use_particle_filter = false,
     map_topic = "/pmap"
 }
 return config

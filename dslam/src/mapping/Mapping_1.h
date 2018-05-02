@@ -6,7 +6,6 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <angles/angles.h>
 #include <ros/ros.h>
-#include <tf/transform_datatypes.h>
 #include "3rd/raycaster/map_ray_caster.h"
 #include "utils/luaconf.h"
 #include "../localization/common.h"
@@ -17,7 +16,7 @@ namespace dslam{
         public:
             Mapping();
             ~Mapping();
-            void buildFrom(std::list<kf_t>&);
+            void buildFrom(std::list<key_frame_t>&);
             void configure(Configuration&);
             nav_msgs::OccupancyGrid getMap();
 
@@ -26,10 +25,10 @@ namespace dslam{
             //void resolveMapsize(Eigen::Vector3d,const nav_msgs::OccupancyGrid&);
             //void mergeSubmap(const nav_msgs::OccupancyGrid&,Eigen::Vector3d);
             void resolveMapsize(Eigen::Vector3d theirpose, double w, double h);
-            bool castToObstacle(double , double , vector<size_t> &,  tf::Transform& _tf);
+            bool castToObstacle(double , double , vector<size_t> &,  dslam_tf_t& _tf);
             void updatePoints(double, bool  , const vector<size_t> &, vector<int8_t> &, vector<double> &);
             void updateOccupancy(double, size_t idx, vector<int8_t> &, vector<double> &);
-            void fromScan(const sensor_msgs::LaserScan &scan, tf::Transform& _tf);
+            void fromScan(const sensor_msgs::LaserScan &scan, dslam_tf_t& _tf);
 
            //probability that a point is occupied from laser data 
             double p_occupied_w_observation_;

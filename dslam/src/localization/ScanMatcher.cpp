@@ -17,7 +17,10 @@ ScanMatcher::ScanMatcher()
     output_.dx_dy1_m = 0;
     output_.dx_dy2_m = 0;
 
-    kf_idx_=0;
+    current_kf_.index = 0;
+    current_kf_.f2b.setIdentity();
+    current_kf_.odom.setIdentity();
+    current_kf_.b2l.setIdentity();
 }
 void ScanMatcher::configure(Configuration &config, ros::NodeHandle &nh)
 {
@@ -28,7 +31,6 @@ void ScanMatcher::configure(Configuration &config, ros::NodeHandle &nh)
     fixed_frame_ = config.get<std::string>("global_frame", "world");
     imu_topic_ = config.get<std::string>("imu_topic", "/imu");
     scan_topic_ = config.get<std::string>("scan_topic", "/scan");
-    ROS_WARN("IMU topic is %s\n", imu_topic_.c_str());
     odom_topic_ = config.get<std::string>("odom_topic", "/odom");
     // **** keyframe params: when to generate the keyframe scan
     // if either is set to 0, reduces to frame-to-frame matching
@@ -212,10 +214,11 @@ void ScanMatcher::scanCallback(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
         }
 
         laserScanToLDP(scan_msg, prev_ldp_scan_);
-        last_icp_time_ = scan_msg->header.stamp;
+        //last_icp_time_ = scan_msg->header.stamp;
         initialized_ = true;
     }
     current_kf_.scan = *scan_msg;
+    current_kf_.b2l = base_to_laser_;
     LDP curr_ldp_scan;
     laserScanToLDP(scan_msg, curr_ldp_scan);
     processScan(curr_ldp_scan, scan_msg->header.stamp);
@@ -249,9 +252,8 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
 
     // **** estimated change since last scan
 
-    double dt = (time - last_icp_time_).toSec();
     double pr_ch_x, pr_ch_y, pr_ch_a;
-    getPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
+    getPrediction(pr_ch_x, pr_ch_y, pr_ch_a);
 
     // the predicted change of the laser's position, in the fixed frame
 
@@ -308,13 +310,16 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
         double corr_len = sqrt(pow(dx,2) +pow(dy, 2));
         double odom_len = sqrt(pr_ch_x*pr_ch_x + pr_ch_y*pr_ch_y);
         double score = corr_len/odom_len;
+        score = score < 0.5?odom_len/corr_len:score;
         double dir = dx*pr_ch_x + dy*pr_ch_y;
+        
+        
         if(use_odom_ && (score > confidence_factor_ || dir < 0))
         {
+            ROS_WARN("Odom len %f - estimate len %f: score %f\n", odom_len, corr_len, corr_len/odom_len );
             createTfFromXYTheta(f2b_kf_.getOrigin().getX() + pr_ch_x,
             f2b_kf_.getOrigin().getY() + pr_ch_y,
             tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a ,f2b_);
-            ROS_WARN("Odom len %f - estimate len %f: score %f\n", odom_len, corr_len, corr_len/odom_len );
         }
         // **** publish
 
@@ -370,31 +375,7 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
             tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a ,f2b_);
         ROS_WARN("Error in scan matching");
     }
-
-    double dist = sqrt( pow(current_kf_.tf.translation(0), 2) + pow(current_kf_.tf.translation(1),2) );
-    double yaw = fabs(current_kf_.tf.rotation.toRotationMatrix().eulerAngles(0, 1, 2)[2]);
-    if(keyframes.empty() || dist >= kf_dist_linear_ || yaw >= kf_dist_angular_)
-    {
-        if(use_odom_)
-        {
-            current_kf_.diff.translation(0) = latest_odom_msg_.pose.pose.position.x;
-            current_kf_.diff.translation(1) = latest_odom_msg_.pose.pose.position.y;
-            current_kf_.diff.translation(2) = latest_odom_msg_.pose.pose.position.z;
-            current_kf_.diff.rotation.x() = latest_odom_msg_.pose.pose.orientation.x;
-            current_kf_.diff.rotation.y() = latest_odom_msg_.pose.pose.orientation.y;
-            current_kf_.diff.rotation.z() = latest_odom_msg_.pose.pose.orientation.z;
-            current_kf_.diff.rotation.w() = latest_odom_msg_.pose.pose.orientation.w;
-        }
-        
-        current_kf_.index = kf_idx_;
-        keyframes.push_back(current_kf_);
-        kf_idx_++;
-        current_kf_.tf.rotation = Eigen::Quaterniond::Identity();
-        current_kf_.diff.rotation = Eigen::Quaterniond::Identity();
-        current_kf_.tf.translation = Eigen::Vector3d(0.0,0.0,0.0);
-        current_kf_.diff.translation = Eigen::Vector3d(0.0,0.0,0.0);
-    }
-    // publish tf
+     // publish tf
     if(use_odom_)
     {
         tf::Quaternion q1(
@@ -405,8 +386,8 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
         tf::Transform f2o;
         createTfFromXYTheta(latest_odom_msg_.pose.pose.position.x,latest_odom_msg_.pose.pose.position.y,
             tf::getYaw(q1), f2o );
+        current_kf_.odom = f2o;
         f2o = f2b_*f2o.inverse();
-        
         tf::StampedTransform transform_msg(f2o, time, fixed_frame_, latest_odom_msg_.header.frame_id );
         tf_broadcaster_.sendTransform(transform_msg);
     }
@@ -415,6 +396,28 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
         tf::StampedTransform transform_msg(f2b_, time, fixed_frame_, base_frame_ );
         tf_broadcaster_.sendTransform(transform_msg);
     }
+
+    // select key frame
+    tf::Transform diff = f2b_ *current_kf_.f2b.inverse();
+    double dist = 
+        pow(f2b_.getOrigin().getX() - current_kf_.f2b.getOrigin().getX(), 2)
+        + 
+        pow(f2b_.getOrigin().getY() - current_kf_.f2b.getOrigin().getY(),2);
+    double yaw = fabs(
+        tf::getYaw(current_kf_.f2b.getRotation())
+        -
+        tf::getYaw( f2b_.getRotation() )
+    );
+    
+    //ROS_DEBUG("kf_dist: %f %f\n", dist, yaw);
+
+    if(keyframes.empty() || dist >= kf_dist_linear_sq_ || yaw >= kf_dist_angular_)
+    {
+        current_kf_.f2b = f2b_;
+        keyframes.push_back(current_kf_);
+        current_kf_.index++;
+    }
+   
     // **** swap old and new
     if(prev_ldp_scan_)
         ld_free(prev_ldp_scan_);
@@ -437,7 +440,7 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
     
     */
     // **** statistics
-    last_icp_time_ = time;
+    //last_icp_time_ = time;
     double dur = (ros::WallTime::now() - start).toSec() * 1e3;
     ROS_DEBUG("Scan matcher total duration: %.1f ms", dur);
 }
@@ -453,21 +456,8 @@ void ScanMatcher::getLastKnownPose(geometry_msgs::Pose& pose)
     pose.orientation.z = f2b_.getRotation().z();
     pose.orientation.w = f2b_.getRotation().w();
 }
-bool ScanMatcher::newKeyframeNeeded(const tf::Transform &d)
-{
-    if (fabs(tf::getYaw(d.getRotation())) > kf_dist_angular_)
-        return true;
 
-    double x = d.getOrigin().getX();
-    double y = d.getOrigin().getY();
-    if (x * x + y * y > kf_dist_linear_sq_)
-        return true;
-
-    return false;
-}
-
-void ScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_msg,
-                                 LDP &ldp)
+void ScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_msg,LDP &ldp)
 {
     unsigned int n = scan_msg->ranges.size();
     ldp = ld_alloc_new(n);
@@ -550,7 +540,7 @@ bool ScanMatcher::getBaseToLaserTf(const std::string &frame_id)
 // returns the predicted change in pose (in fixed frame)
 // since the last time we did icp
 void ScanMatcher::getPrediction(double &pr_ch_x, double &pr_ch_y,
-                                double &pr_ch_a, double dt)
+                                double &pr_ch_a)
 {
     boost::mutex::scoped_lock(mutex_);
 
