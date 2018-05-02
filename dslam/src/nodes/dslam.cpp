@@ -33,6 +33,7 @@ void run()
     ros::Rate rate(10);
     while (ros::ok())
     {
+        if(matcher_->keyframes.empty()) continue;
         geometry_msgs::PoseArray estimated_poses_;
 
         auto it = matcher_->keyframes.begin();
@@ -90,6 +91,8 @@ int main(int argc, char **argv)
     Configuration localisation = config.get<Configuration>("localisation", Configuration());
     Configuration mapping = config.get<Configuration>("mapping", Configuration());
     //Configuration local_map = mapping.get<Configuration>("submap", Configuration());
+    matcher_ = new ScanMatcher();
+    matcher_->configure(localisation, nh_local);
     map_builder_.configure(mapping);
 
     map_frame = localisation.get<std::string>("global_frame", "map");
@@ -105,9 +108,6 @@ int main(int argc, char **argv)
     ROS_DEBUG("Frequency set to %0.1f Hz", frequency);
     ros::Rate rate(frequency);
     local_map_pub = nh_local.advertise<nav_msgs::OccupancyGrid>(map_topic, 1, true);
-    matcher_ = new ScanMatcher();
-
-    matcher_->configure(localisation, nh_local);
 
     boost::thread t1(&run);
     boost::thread t2(&localmapping);
@@ -118,8 +118,9 @@ int main(int argc, char **argv)
     {
         ros::spinOnce();
         //publish_tranform();
+        matcher_->publishTf();
         //if(estimated_poses_.poses.size() > 0)
-        //rate.sleep();
+        rate.sleep();
     }
     return 0;
 }
