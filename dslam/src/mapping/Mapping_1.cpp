@@ -116,7 +116,7 @@ void Mapping::rotateSubMap(const nav_msgs::OccupancyGrid &in, nav_msgs::Occupanc
     out.info.origin.orientation.w = 1.0;
     out.data.resize(size * size, -1);
     // now convert each pixel to coordinate
-    // rotate it, then corvert the result to
+    // rotate it, then  corvert the result to
     // pixel position
     double offset = (double)in.info.width / 2.0;
     double roffset = (double)size / 2.0;

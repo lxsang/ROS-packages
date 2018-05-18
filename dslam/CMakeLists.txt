@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 find_package(catkin REQUIRED COMPONENTS
   rospy
   roscpp
@@ -20,6 +21,18 @@ find_package(Eigen REQUIRED)
 find_package(catkin REQUIRED COMPONENTS tf)
 #pkg_check_modules(BFL REQUIRED orocos-bfl)
 pkg_check_modules(csm REQUIRED csm)
+
+find_package(CSparse REQUIRED)
+find_package(G2O REQUIRED)
+find_package(Cholmod REQUIRED)
+
+FIND_PACKAGE(OpenMP)
+if(OPENMP_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -D_PWN_USE_OPENMP_ -DEIGEN_DONT_PARALLELIZE")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif(OPENMP_FOUND)
+
 #find_package(orocos-bfl REQUIRED)
 ## System dependencies are found with CMake's conventions
  find_package(Boost REQUIRED COMPONENTS system)
@@ -132,6 +145,8 @@ include_directories(
  ${PCL_INCLUDE_DIRS}
  #${BFL_INCLUDE_DIRS}
  ${csm_INCLUDE_DIRS}
+ ${G2O_INCLUDE_DIR}
+ ${CHOLMOD_INCLUDE_DIR}
 )
 #link_directories(${PCL_LIBRARY_DIRS})
 #link_directories(${BFL_LIBRARY_DIRS})
@@ -165,6 +180,16 @@ add_library(dslam
     src/localization/ScanMatcher.cpp
     src/3rd/raycaster/map_ray_caster.cpp
     src/3rd/laser_geometry/laser_geometry.cpp
+    src/3rd/graph_slam/chargrid.cpp
+    src/3rd/graph_slam/scan_matcher.cpp
+    src/3rd/graph_slam/closure_buffer.cpp
+    src/3rd/graph_slam/closure_checker.cpp
+    src/3rd/graph_slam/graph_manipulator.cpp
+    src/3rd/graph_slam/graph_slam.cpp
+    src/3rd/graph_slam/vertices_finder.cpp
+
+    src/localization/CMScanMatcher.cpp
+    src/localization/CMScanMatcher1.cpp
     src/mapping/SubmapBuilder.cpp
     src/mapping/Mapping.cpp 
     )
@@ -173,6 +198,14 @@ target_link_libraries(dslam
     ${PCL_LIBRARIES} 
     #${BFL_LIBRARIES}
     ${csm_LIBRARIES}
+    ${G2O_CORE_LIBRARY}
+    ${G2O_STUFF_LIBRARY}
+    ${G2O_TYPES_SLAM2D}
+    ${G2O_SOLVER_CHOLMOD}
+    ${G2O_SOLVER_CSPARSE}
+    ${G2O_SOLVER_CSPARSE_EXTENSION}
+    ${G2O_TYPES_DATA}
+
     ${CMAKE_SOURCE_DIR}/dslam/src/3rd/lua-5.3.4/liblua.a)
 
 #add_custom_command(TARGET node_config
@@ -183,6 +216,8 @@ target_link_libraries(dslam
 add_executable(dslam_node src/nodes/dslam.cpp)
 target_link_libraries(dslam_node  dslam)
 
+add_executable(gslam_node src/nodes/graph_slam.cpp)
+target_link_libraries(gslam_node  dslam)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

@@ -225,6 +225,7 @@ void ScanMatcher::scanCallback(const sensor_msgs::LaserScan::ConstPtr &scan_msg)
     current_kf_.scan = *scan_msg;
     current_kf_.b2l = base_to_laser_;
     LDP curr_ldp_scan;
+    ROS_DEBUG("Process data");
     laserScanToLDP(scan_msg, curr_ldp_scan);
     processScan(curr_ldp_scan, scan_msg->header.stamp);
 }
@@ -268,7 +269,7 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
 
     // account for the change since the last kf, in the fixed frame
 
-    pr_ch = pr_ch * (f2b_ * f2b_kf_.inverse());
+    //pr_ch = pr_ch * (f2b_ * f2b_kf_.inverse());
 
     // the predicted change of the laser's position, in the laser frame
 
@@ -313,7 +314,7 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
 
         double dx = f2b_.getOrigin().getX() - f2b_kf_.getOrigin().getX();
         double dy = f2b_.getOrigin().getY() - f2b_kf_.getOrigin().getY();
-        double corr_len = sqrt(pow(dx,2) +pow(dy, 2));
+        double corr_len = sqrt(dx*dx + dy*dy);
         double odom_len = sqrt(pr_ch_x*pr_ch_x + pr_ch_y*pr_ch_y);
         double score = corr_len/odom_len;
         score = score < 0.5?odom_len/corr_len:score;
@@ -325,7 +326,8 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
             ROS_WARN("Odom len %f - estimate len %f: score %f\n", odom_len, corr_len, corr_len/odom_len );
             createTfFromXYTheta(f2b_kf_.getOrigin().getX() + pr_ch_x,
             f2b_kf_.getOrigin().getY() + pr_ch_y,
-            tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a ,f2b_);
+            angles::normalize_angle(tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a) ,f2b_);
+            //f2b_ = f2b_kf_*(pr_ch;
         }
         // **** publish
 
@@ -378,7 +380,8 @@ void ScanMatcher::processScan(LDP &curr_ldp_scan, const ros::Time &time)
         // fall back to odom
         createTfFromXYTheta(f2b_kf_.getOrigin().getX() + pr_ch_x,
             f2b_kf_.getOrigin().getY() + pr_ch_y,
-            tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a ,f2b_);
+            angles::normalize_angle(tf::getYaw(f2b_kf_.getRotation()) + pr_ch_a) ,f2b_);
+        //f2b_ = f2b_kf_ * pr_ch ;
         ROS_WARN("Error in scan matching");
     }
      // publish tf
@@ -585,11 +588,11 @@ void ScanMatcher::getPrediction(double &pr_ch_x, double &pr_ch_y,
             latest_odom_msg_.pose.pose.orientation.w);
         pr_ch_a = tf::getYaw(q1*q.inverse()) ;
 
-        /*if (pr_ch_a >= M_PI)
+        if (pr_ch_a >= M_PI)
             pr_ch_a -= 2.0 * M_PI;
         else if (pr_ch_a < -M_PI)
             pr_ch_a += 2.0 * M_PI;
-        */
+        
         last_used_odom_msg_ = latest_odom_msg_;
     }
 

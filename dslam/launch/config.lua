@@ -1,5 +1,4 @@
 local PI = 3.1415926535898
-local sim = true
 local config = {
     scan_topic = "/scan",
     keypoint_topic = "keypoints",
@@ -59,7 +58,17 @@ local config = {
             confidence_factor = 1.8,
             max_laser_range = 8.0
         },
-        keyframe_sample_linear = 0.5,
+        correlative_scan_matcher = {
+            kernel_resolution= 0.05,
+            kernel_radius = 0.15,
+            max_matching_score = 0.15,
+            max_optimization_step=10,
+            loop_closing_window=10.0,
+            inlier_threshold = 2.0,
+            min_inlier = 10.0,
+            max_laser_range = 15.0
+        },
+        keyframe_sample_linear = 0.3,
         keyframe_sample_angular = 30.0 * (PI / 180.0),
         global_frame = "map",
         laser_frame = "laser",
@@ -83,13 +92,19 @@ local config = {
         init_height = 1.0 --m
     },
     --line_seg_topic = "/line_markers",
-    frequency = 25,
+    frequency = 5,
     map_topic = "/pmap"
 }
 
+local sim = false
+
 if sim then
-    config.localisation.scan_matcher.max_correspondence_dist = 0.2
+    config.localisation.scan_matcher.use_odom = true
+    config.localisation.scan_matcher.max_correspondence_dist = 0.05
     config.localisation.scan_matcher.confidence_factor = 1.8
-    config.localisation.scan_matcher.max_laser_range = 15
+    config.localisation.scan_matcher.max_laser_range = 8.0
+    config.localisation.keyframe_sample_linear = 0.5
+    config.localisation.keyframe_sample_angular = 45.0 * (PI / 180.0)
+    --config.localisation.scan_matcher.use_odom = false
 end
 return config
