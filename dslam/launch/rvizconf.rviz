@@ -59,10 +59,10 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /line_markers
+      Marker Topic: /constraints
       Name: Marker
       Namespaces:
-        {}
+        points_and_lines: true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -313,7 +313,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /pmap
+      Topic: /map
       Unreliable: false
       Use Timestamp: false
       Value: true
@@ -486,10 +486,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 1.14979672
+      Pitch: 1.15979671
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.59039354
+      Yaw: 4.58539343
     Saved: ~
 Window Geometry:
   Displays:

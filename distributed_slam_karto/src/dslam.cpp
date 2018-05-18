@@ -7,7 +7,7 @@ DSlamKarto::DSlamKarto()
     fixed_to_odom_.setIdentity();
     num_scan_ = 0;
     last_update_map_ = ros::Time(0,0);
-    map_init_ = false;
+    map_init_ = true;
 }
 DSlamKarto::~DSlamKarto()
 {
@@ -33,6 +33,8 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
 
     map_update_rate_.fromSec(config.get<double>("map_update_rate", 5.0));
     resolution_ = config.get<double>("resolution", 0.05);
+
+    publish_graph_ = config.get<bool>("publish_graph", false);
 
     mapper_ = new karto::Mapper();
     database_ = new karto::Dataset();
@@ -92,8 +94,13 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
     scan_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(*scan_filter_sub_, tf_, odom_frame_, 5);
     scan_filter_->registerCallback(boost::bind(&DSlamKarto::laserCallback, this, _1));
 
+    std::string constraints_topic = config.get<std::string>("constraints_topic", "/constraints");
     // publisher
     map_pub_ = nh.advertise<nav_msgs::OccupancyGrid>(map_topic, 1);
+    if(publish_graph_)
+    {
+        constraint_pub_ = nh.advertise< visualization_msgs::Marker>(constraints_topic, 10);
+    }
 }
 void DSlamKarto::publishTf()
 {
@@ -103,12 +110,70 @@ void DSlamKarto::publishTf()
 }
 void DSlamKarto::publishGraph()
 {
+    if(!publish_graph_ || !optimizer_) return;
+    std::vector<Eigen::Vector2d> nodes;
+    std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d> > edges;
+    optimizer_->getGraph(nodes, edges);
+
+    visualization_msgs::Marker points, line_list;
+
+    points.header.frame_id =  line_list.header.frame_id = fixed_frame_;
+    points.header.stamp =  line_list.header.stamp = ros::Time::now();
+    points.ns =  line_list.ns = "points_and_lines";
+    points.action = line_list.action = visualization_msgs::Marker::ADD;
+    points.pose.orientation.w  = line_list.pose.orientation.w = 1.0;
+
+    points.id = 0;
+    line_list.id = 1;
+
+    points.type = visualization_msgs::Marker::POINTS;
+    line_list.type = visualization_msgs::Marker::LINE_LIST;
+
+    // POINTS markers use x and y scale for width/height respectively
+    points.scale.x = 0.04;
+    points.scale.y = 0.04;
+
+    line_list.scale.x = 0.01;
+    // Points are green
+    points.color.b = 1.0f;
+    points.color.a = 1.0;
+
+    // Line list is red
+    line_list.color.r = 1.0;
+    line_list.color.a = 1.0;
+
+    geometry_msgs::Point p;
+    for(auto it = nodes.begin(); it != nodes.end(); it++)
+    {
+        
+        p.x = (*it)(0);
+        p.y = (*it)(1);
+        p.z = 0;
+        points.points.push_back(p);
+    }
+
+    for(auto it = edges.begin(); it != edges.end(); it++)
+    {
+        p.x = it->first(0);
+        p.y = it->first(1);
+        p.z = 0;
+        line_list.points.push_back(p);
+
+        p.x = it->second(0);
+        p.y = it->second(1);
+        p.z = 0;
+        line_list.points.push_back(p);
+    }
+
+    // publish the message
+    constraint_pub_.publish(points);
+    constraint_pub_.publish(line_list);
 }
 void DSlamKarto::laserCallback(const sensor_msgs::LaserScan::ConstPtr &scan)
 {
     boost::mutex::scoped_lock lock(mutex_);
     num_scan_++;
-    if (num_scan_ % throttle_scans_ != 0)
+    if (!map_init_ && num_scan_ % throttle_scans_ != 0)
         return;
     karto::LaserRangeFinder *dev = getRFDevice(scan);
     if (!dev)
@@ -121,8 +186,8 @@ void DSlamKarto::laserCallback(const sensor_msgs::LaserScan::ConstPtr &scan)
     if (registerScan(dev, scan, odom))
     {
         // scan is valid
-        // update the map if it fail to a time interval
-        if (! map_init_ || scan->header.stamp - last_update_map_ > map_update_rate_)
+        // update the map if it fall to a time interval
+        if ( map_init_ || scan->header.stamp - last_update_map_ > map_update_rate_)
         {
             // update the map
             // TODO
@@ -130,7 +195,7 @@ void DSlamKarto::laserCallback(const sensor_msgs::LaserScan::ConstPtr &scan)
             {
                 map_pub_.publish(map_);
                 last_update_map_ = scan->header.stamp;
-                map_init_ = true;
+                map_init_ = false;
             }
         }
     }

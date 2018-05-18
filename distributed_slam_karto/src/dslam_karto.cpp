@@ -4,7 +4,7 @@
 
 using namespace dslam;
 DSlamKarto* slam = NULL;
-void run()
+void publishTf()
 {
     ros::Rate rate(25);
     while (ros::ok())
@@ -14,6 +14,18 @@ void run()
         rate.sleep();
     }
 }
+
+void publishGraph()
+{
+    ros::Rate rate(5);
+    while (ros::ok())
+    {
+        if(!slam) continue;
+        slam->publishGraph();
+        rate.sleep();
+    }
+}
+
 int main(int argc, char **argv)
 {
     /*if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
@@ -34,8 +46,10 @@ int main(int argc, char **argv)
     slam->configure(config, nh_local);
 
     //ros::Rate rate(25);
-    boost::thread t1(&run);
-    //boost::thread t2(&localmapping);
+    boost::thread t1(&publishTf);
+    bool publish_graph = config.get<bool>("publish_graph",false);
+    if(publish_graph)
+        boost::thread t2(&publishGraph);
     //boost::thread t3(&publish_tranform);
     //t1.join();
     ros::spin();
