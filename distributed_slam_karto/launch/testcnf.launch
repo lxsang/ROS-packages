@@ -1,5 +1,0 @@
- <launch>
-    <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen">
-        <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
-    </node>
-</launch>

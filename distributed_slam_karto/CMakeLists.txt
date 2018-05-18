@@ -51,14 +51,11 @@ add_library(dsk
   src/utils/ConfValue.cpp
   src/dslam.cpp
 )
-add_executable(d_slam_karto_g2o
-  src/slam_karto_g2o.cpp
-)
+
 
 add_executable(d_slam_karto
   src/dslam_karto.cpp
 )
-add_dependencies(d_slam_karto_g2o prebuild dsk)
 add_dependencies(d_slam_karto prebuild dsk)
 
 
@@ -74,7 +71,6 @@ target_link_libraries(dsk
   ${PROJECT_SOURCE_DIR}/src/utils/lua-5.3.4/liblua.a
 )
 
-target_link_libraries(d_slam_karto_g2o dsk)
 target_link_libraries(d_slam_karto dsk)
 #install(TARGETS slam_karto_g2o
 #  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

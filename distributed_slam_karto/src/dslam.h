@@ -10,7 +10,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
-
+#include <visualization_msgs/Marker.h>
 #include "open_karto/Mapper.h"
 
 #include "open_karto/G2OSolver.h"
@@ -38,7 +38,7 @@ namespace dslam {
             tf::TransformBroadcaster tf_broadcaster_;
             tf::Transform fixed_to_odom_;
 
-            bool map_init_;
+            bool map_init_, publish_graph_;
             message_filters::Subscriber<sensor_msgs::LaserScan>* scan_filter_sub_;
             tf::MessageFilter<sensor_msgs::LaserScan>* scan_filter_;
 
@@ -54,6 +54,7 @@ namespace dslam {
             G2OSolver* optimizer_;
             
             ros::Publisher map_pub_;
+            ros::Publisher constraint_pub_;
 
             nav_msgs::OccupancyGrid map_;
 

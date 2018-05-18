@@ -25,8 +25,9 @@
         <param name="resolution" value="0.05"/>
         <rosparam command="load" file="$(find slam_karto_g2o)/config/mapping_karto_g2o.yaml" />
   </node-->
+  
   <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen"   >
-        <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
+    <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
     </node>
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>

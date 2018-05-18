@@ -260,31 +260,31 @@ void G2OSolver::getGraph(std::vector<Eigen::Vector2d> &nodes, std::vector<std::p
 
   double *data2 = new double[3];
 
-  // for (SparseOptimizer::EdgeSet::iterator it = optimizer_.edges().begin(); it != optimizer_.edges().end(); ++it) 
-  // {
+   for (SparseOptimizer::EdgeSet::iterator it = optimizer_.edges().begin(); it != optimizer_.edges().end(); ++it) 
+   {
 
-  //   EdgeSE2* e = dynamic_cast<EdgeSE2*>(*it);
+    EdgeSE2* e = dynamic_cast<EdgeSE2*>(*it);
     
-  //   if(e) 
-  //   {
+     if(e) 
+     {
       
-  //     VertexSE2* v1 = dynamic_cast<VertexSE2*>(e->vertices()[0]);
+      VertexSE2* v1 = dynamic_cast<VertexSE2*>(e->vertices()[0]);
 
-  //     v1->getEstimateData(data1);
+       v1->getEstimateData(data1);
 
-  //     Eigen::Vector2d poseFrom(data1[0], data1[1]);
+       Eigen::Vector2d poseFrom(data1[0], data1[1]);
 
-  //     VertexSE2* v2 = dynamic_cast<VertexSE2*>(e->vertices()[1]);
+       VertexSE2* v2 = dynamic_cast<VertexSE2*>(e->vertices()[1]);
 
-  //     v2->getEstimateData(data2);
+       v2->getEstimateData(data2);
 
-  //     Eigen::Vector2d poseTo(data2[0], data2[1]);
+       Eigen::Vector2d poseTo(data2[0], data2[1]);
 
-  //     edges.push_back(std::make_pair(poseFrom, poseTo));
+       edges.push_back(std::make_pair(poseFrom, poseTo));
 
-  //   }
+     }
 
-  // }
+   }
 
   delete data;
 
