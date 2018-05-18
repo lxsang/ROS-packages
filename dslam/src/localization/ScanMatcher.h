@@ -17,6 +17,7 @@ https://github.com/ccny-ros-pkg/scan_tools/tree/indigo/laser_scan_matcher
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
+#include <angles/angles.h>
 //#include <pcl/point_types.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>

@@ -4,7 +4,7 @@
     <arg name="3d_sensor"  default="$(optenv TURTLEBOT_3D_SENSOR kinect)"/>  <!-- kinect, asus_xtion_pro -->
     <param name ="use_sim_time" value="true"/> 
 
-    <node pkg="rosbag" type="play" name="player1" output="screen" args="--quiet --clock $(find dslam)/launch/testdata-2018-04-11-15-11-59.bag">
+    <node pkg="rosbag" type="play" name="player1" output="screen" args="--quiet --clock $(find dslam)/launch/dataset/aces.bag">
         <!--remap from="/submap_list" to = "/submap_list_1" />
         <remap from ="/imu" to = "imu_1" /-->
         <!--remap from="/tf" to="/tf1"/-->
