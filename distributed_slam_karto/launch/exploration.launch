@@ -1,0 +1,41 @@
+<launch>
+  <arg name="world" />
+  <param name="/use_sim_time" value="true"/>
+ <include file="$(find dslam)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/$(arg world).world"/> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 launch-prefix="valgrind"-->
+    <arg name="recording" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+     <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
+
+    <include file="$(find distributed_slam_karto)/launch/single_robot_config.launch">
+        <arg name ="namespace" value="r1"/>
+        <arg name = "init_x" value="0.0" />
+        <arg name = "init_y" value="0.0" />
+        <arg name = "init_z" value="0.0" />
+    </include>
+
+
+    <include file="$(find distributed_slam_karto)/launch/single_robot_config.launch">
+        <arg name ="namespace" value="r2"/>
+        <arg name = "init_x" value="-2.0" />
+        <arg name = "init_y" value="-4.0" />
+        <arg name = "init_z" value="0.0" />
+    </include>
+
+    <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node-->
+
+  <!--node name="flat_world_imu_node" pkg="cartographer_turtlebot"
+      type="cartographer_flat_world_imu_node" output="screen">
+    <remap from="imu_in" to="/mobile_base/sensors/imu_data_raw" />
+    <remap from="imu_out" to="/imu" />
+  </node-->
+
+ 
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find distributed_slam_karto)/launch/includes/viewer.rviz"/>
+    
+</launch>

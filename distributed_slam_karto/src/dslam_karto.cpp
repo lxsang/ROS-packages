@@ -26,6 +26,17 @@ void publishGraph()
     }
 }
 
+void publishMap()
+{
+    ros::Rate rate(0.5);
+    while (ros::ok())
+    {
+        if(!slam) continue;
+        slam->publishMap();
+        rate.sleep();
+    }
+}
+
 int main(int argc, char **argv)
 {
     /*if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
@@ -36,9 +47,11 @@ int main(int argc, char **argv)
     // execute config
     ros::NodeHandle nh_local("~");
 
-    std::string config_file;
+    std::string config_file, prefix;
     nh_local.param<std::string>("conf_file", config_file, "config.lua");
+    nh_local.param<std::string>("prefix", prefix, "");
     Configuration robot;
+    robot.get<std::string>("prefix", prefix);
     // add robot configuration here
     Configuration config(config_file, robot);
 
@@ -50,7 +63,7 @@ int main(int argc, char **argv)
     bool publish_graph = config.get<bool>("publish_graph",false);
     if(publish_graph)
         boost::thread t2(&publishGraph);
-    //boost::thread t3(&publish_tranform);
+    boost::thread t3(&publishMap);
     //t1.join();
     ros::spin();
     /*while (ros::ok())

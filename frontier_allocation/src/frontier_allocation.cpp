@@ -5,7 +5,7 @@
 #include "common.h"
 double goal_tolerance, frontier_tolerance;
 bool random_frontier;
-std::string map_frame, base_frame, goal_topic, pf_stat_topic, cmd_vel_topic;
+std::string map_frame, base_frame, goal_topic, pf_stat_topic, cmd_vel_topic, move_base_status,frontier_topic;
 geometry_msgs::Point frontier, old_frontier;
 tf::TransformListener *listener;
 actionlib_msgs::GoalStatusArray global_status;
@@ -139,10 +139,12 @@ int main(int argc, char **argv)
     private_nh.param<std::string>("goal_topic", goal_topic, "/move_base_simple/goal");
     private_nh.param<std::string>("pf_status", pf_stat_topic, "/move_base/PFLocalPlanner/pf_status" );
     private_nh.param<std::string>("cmd_vel_topic", cmd_vel_topic, "/cmd_vel");
+    private_nh.param<std::string>("move_base_status", move_base_status, "/move_base/status");
+    private_nh.param<std::string>("frontier_topic", frontier_topic, "/frontiers");
 
-    ros::Subscriber sub_ph = private_nh.subscribe<geometry_msgs::PoseArray>("/frontiers", 10, &frontier_callback);
+    ros::Subscriber sub_ph = private_nh.subscribe<geometry_msgs::PoseArray>(frontier_topic, 10, &frontier_callback);
     ros::Publisher pub_goal = private_nh.advertise<geometry_msgs::PoseStamped>(goal_topic, 10);
-    ros::Subscriber sub_status = private_nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 10, &status_callback);
+    ros::Subscriber sub_status = private_nh.subscribe<actionlib_msgs::GoalStatusArray>(move_base_status, 10, &status_callback);
     ros::Publisher cmd_vel_pub = private_nh.advertise<geometry_msgs::Twist>(cmd_vel_topic, 10);
     ros::Subscriber sub_pf_status = private_nh.subscribe<std_msgs::Bool>(pf_stat_topic, 1, &pf_status_callback);
 

@@ -108,6 +108,12 @@ void DSlamKarto::publishTf()
     tf::StampedTransform transform_msg(fixed_to_odom_, ros::Time::now(), fixed_frame_, odom_frame_);
     tf_broadcaster_.sendTransform(transform_msg);
 }
+void DSlamKarto::publishMap()
+{
+    boost::mutex::scoped_lock lock(mutex_);
+    if(map_init_) return;
+    map_pub_.publish(map_);
+}
 void DSlamKarto::publishGraph()
 {
     if(!publish_graph_ || !optimizer_) return;
@@ -193,7 +199,6 @@ void DSlamKarto::laserCallback(const sensor_msgs::LaserScan::ConstPtr &scan)
             // TODO
             if(updateMap())
             {
-                map_pub_.publish(map_);
                 last_update_map_ = scan->header.stamp;
                 map_init_ = false;
             }
