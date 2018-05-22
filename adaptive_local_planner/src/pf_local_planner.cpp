@@ -126,7 +126,7 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     geometry_msgs::PoseStamped goal;
     if (!this->select_goal(&goal))
     {
-        ROS_ERROR("No local goal is selected");
+        ROS_WARN("No local goal is selected");
         reached = true;
         return true;
     }
@@ -462,14 +462,15 @@ void PFLocalPlanner::initialize(std::string name, tf::TransformListener *tf, cos
         private_nh.param<double>("field_h", dh, 4.0);
         private_nh.param<double>("local_map_resolution", this->map_resolution, 0.05);
         private_nh.param<std::string>("scan_topic", this->scan_topic, "/scan");
+        //ROS_ERROR("Scan topic is %s", this->scan_topic.c_str());
         this->fw = round(dw / this->map_resolution);
         this->fh = round(dh / this->map_resolution);
         map_builder = new local_map::MapBuilder(this->fw, this->fh, this->map_resolution);
 
-        local_goal_pub = private_nh.advertise<geometry_msgs::PoseStamped>("/local_goal", 1, true);
-        futur_pose_pub = private_nh.advertise<geometry_msgs::PoseStamped>("/future_pose", 1, true);
-        obstacles_pub = private_nh.advertise<geometry_msgs::PoseArray>("/obstacles", 1, true);
-        local_map_pub = private_nh.advertise<nav_msgs::OccupancyGrid>("/pf_local_map",1,true);
+        local_goal_pub = private_nh.advertise<geometry_msgs::PoseStamped>("local_goal", 1, true);
+        futur_pose_pub = private_nh.advertise<geometry_msgs::PoseStamped>("future_pose", 1, true);
+        obstacles_pub = private_nh.advertise<geometry_msgs::PoseArray>("obstacles", 1, true);
+        local_map_pub = private_nh.advertise<nav_msgs::OccupancyGrid>("pf_local_map",1,true);
         pf_status_pub =  private_nh.advertise<std_msgs::Bool>(status_topic,1,true);
         this->tf = tf;
         

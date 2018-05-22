@@ -3,6 +3,7 @@
 
 tf::TransformListener *listener;
 ros::Publisher frontiers_map_pub,frontiers_pub;
+std::string base_frame;
 int min_frontier_size_px;
 
 
@@ -28,9 +29,9 @@ bool is_frontier(const nav_msgs::OccupancyGrid::ConstPtr & map, int x, int y)
 void calcul_frontiers(const nav_msgs::OccupancyGrid::ConstPtr & gmap)
 {
     geometry_msgs::Pose pose;
-    if (!my_pose(&pose, listener, "map", "base_link" ))
+    if (!my_pose(&pose, listener, gmap->header.frame_id, base_frame ))
     {
-        ROS_WARN("Cannot find my pose");
+        ROS_ERROR("Cannot find my pose");
         return ;
     }
     // calculate frontier
@@ -107,7 +108,7 @@ void calcul_frontiers(const nav_msgs::OccupancyGrid::ConstPtr & gmap)
         map<int, geometry_msgs::Point>::iterator mit;
         geometry_msgs::PoseArray poses;
         poses.header.stamp = ros::Time::now();
-        poses.header.frame_id = "map";
+        poses.header.frame_id = gmap->header.frame_id;
         for (mit = obs.begin(); mit != obs.end(); mit++)
         {
             geometry_msgs::Pose p;
@@ -134,13 +135,16 @@ int main(int argc, char** argv)
     ros::NodeHandle private_nh("~");
     listener = new tf::TransformListener();
     double rate;
-    std::string map_topic, frontiers_map_topic;
+    std::string map_topic, frontiers_map_topic, frontier_topic;
+    private_nh.param<std::string>("map", map_topic, "/map");
+    private_nh.param<std::string>("base_frame", base_frame, "base_link");
     private_nh.param<std::string>("map", map_topic, "/map");
     private_nh.param<std::string>("frontiers_map", frontiers_map_topic, "/frontiers_map");
+    private_nh.param<std::string>("frontiers_topic", frontier_topic, "/frontiers");
     private_nh.param<int>("min_frontier_size_px", min_frontier_size_px, 30);
     private_nh.param<double>("publishing_rate", rate, 0.5);
     frontiers_map_pub = private_nh.advertise<nav_msgs::OccupancyGrid>(frontiers_map_topic, 1,true);
-    frontiers_pub = private_nh.advertise<geometry_msgs::PoseArray>("/frontiers", 1, true);
+    frontiers_pub = private_nh.advertise<geometry_msgs::PoseArray>(frontier_topic, 1, true);
     ros::Subscriber sub_ph = private_nh.subscribe<nav_msgs::OccupancyGrid>(map_topic, 1, map_callback);
     ros::Rate loop_rate(rate);
     while (ros::ok())
