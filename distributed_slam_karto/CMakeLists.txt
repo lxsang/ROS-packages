@@ -53,11 +53,6 @@ add_library(dsk
 )
 
 
-add_executable(d_slam_karto
-  src/dslam_karto.cpp
-)
-add_dependencies(d_slam_karto prebuild dsk)
-
 
 target_link_libraries(dsk ${catkin_LIBRARIES} ${CSPARSE_LIBRARY} ${CHOLMOD_LIBRARIES})
 
@@ -71,7 +66,18 @@ target_link_libraries(dsk
   ${PROJECT_SOURCE_DIR}/src/utils/lua-5.3.4/liblua.a
 )
 
+add_executable(d_slam_karto
+  src/dslam_karto.cpp
+)
+add_dependencies(d_slam_karto prebuild dsk)
 target_link_libraries(d_slam_karto dsk)
+
+add_executable(2laser_slam_karto
+  src/dslam_karto_2_laser.cpp
+)
+add_dependencies(2laser_slam_karto prebuild dsk)
+target_link_libraries(2laser_slam_karto dsk)
+
 #install(TARGETS slam_karto_g2o
 #  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 #)

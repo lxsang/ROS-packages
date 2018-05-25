@@ -5,7 +5,7 @@ namespace dslam
 DSlamKarto::DSlamKarto()
 {
     fixed_to_odom_.setIdentity();
-    num_scan_ = 0;
+    //num_scan_ = 0;
     last_update_map_ = ros::Time(0,0);
     map_init_ = true;
 }
@@ -17,19 +17,20 @@ DSlamKarto::~DSlamKarto()
         delete mapper_;
     if (database_)
         delete database_;
-    if (scan_filter_)
+    /*if (scan_filter_)
         delete scan_filter_;
     if (scan_filter_sub_)
         delete scan_filter_sub_;
+        */
 }
 void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
 {
     bool use_robust_kernel = config.get<bool>("use_robust_kernel", false);
     odom_frame_ = config.get<std::string>("odom_frame", "odom");
     fixed_frame_ = config.get<std::string>("fixed_frame", "map");
-    base_frame_ = config.get<std::string>("base_frame", "base_link");
+    //base_frame_ = config.get<std::string>("base_frame", "base_link");
     std::string map_topic = config.get<std::string>("map_topic", "/map");
-    throttle_scans_ = (int)config.get<double>("throttle_scans", 1.0);
+    //throttle_scans_ = (int)config.get<double>("throttle_scans", 1.0);
 
     map_update_rate_.fromSec(config.get<double>("map_update_rate", 5.0));
     resolution_ = config.get<double>("resolution", 0.05);
@@ -86,13 +87,6 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
     optimizer_->useRobustKernel(use_robust_kernel);
 
     mapper_->SetScanSolver(optimizer_);
-
-    // subscriber to topic
-    std::string scan_topic = config.get<std::string>("scan_topic", "/base_scan");
-
-    scan_filter_sub_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(nh, scan_topic, 5);
-    scan_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(*scan_filter_sub_, tf_, odom_frame_, 5);
-    scan_filter_->registerCallback(boost::bind(&DSlamKarto::laserCallback, this, _1));
 
     std::string constraints_topic = config.get<std::string>("constraints_topic", "/constraints");
     // publisher
@@ -175,44 +169,104 @@ void DSlamKarto::publishGraph()
     constraint_pub_.publish(points);
     constraint_pub_.publish(line_list);
 }
-void DSlamKarto::laserCallback(const sensor_msgs::LaserScan::ConstPtr &scan)
+void DSlamKarto::laserCallback(const AnnotatedScan& aScan)
 {
     boost::mutex::scoped_lock lock(mutex_);
-    num_scan_++;
-    if (!map_init_ && num_scan_ % throttle_scans_ != 0)
+    /*if(num_scans_.find(aScan.scan->header.frame_id) == num_scans_.end())
+        num_scans_[aScan.scan->header.frame_id] = 1;
+    else
+        num_scans_[aScan.scan->header.frame_id]++;
+    if (!map_init_ && num_scans_[aScan.scan->header.frame_id] % throttle_scans_ != 0)
         return;
-    karto::LaserRangeFinder *dev = getRFDevice(scan);
+    */
+    karto::LaserRangeFinder *dev = getRFDevice(aScan);
     if (!dev)
     {
-        ROS_WARN("Laser device is invalid: %s", scan->header.frame_id.c_str());
+        ROS_WARN("Laser device is invalid: %s", aScan.scan->header.frame_id.c_str());
         return;
     }
     karto::Pose2 odom;
-
-    if (registerScan(dev, scan, odom))
+    if (!getOdom(odom, aScan)) return;
+    if (registerScan(dev,aScan, odom))
     {
         // scan is valid
         // update the map if it fall to a time interval
-        if ( map_init_ || scan->header.stamp - last_update_map_ > map_update_rate_)
+        if ( map_init_ || aScan.scan->header.stamp - last_update_map_ > map_update_rate_)
         {
             // update the map
             // TODO
             if(updateMap())
             {
-                last_update_map_ = scan->header.stamp;
+                last_update_map_ = aScan.scan->header.stamp;
                 map_init_ = false;
             }
         }
     }
 
 }
-bool DSlamKarto::getOdom(karto::Pose2 &odom, const ros::Time &t)
+void DSlamKarto::laserCallback(const AnnotatedScan& aScan, karto::Pose2& fixed_pose)
 {
-    tf::StampedTransform b2o;
+    boost::mutex::scoped_lock lock(mutex_);
+    /*if(num_scans_.find(aScan.scan->header.frame_id) == num_scans_.end())
+        num_scans_[aScan.scan->header.frame_id] = 1;
+    else
+        num_scans_[aScan.scan->header.frame_id]++;
+    if (!map_init_ && num_scans_[aScan.scan->header.frame_id] % throttle_scans_ != 0)
+        return;
+    */
+    karto::LaserRangeFinder *dev = getRFDevice(aScan);
+    if (!dev)
+    {
+        ROS_WARN("Laser device is invalid: %s", aScan.scan->header.frame_id.c_str());
+        return;
+    }
+    tf::Transform pose(tf::createQuaternionFromRPY(0,0,fixed_pose.GetHeading()),
+                                           tf::Vector3(fixed_pose.GetX(),fixed_pose.GetY(),0));
+    if(!tf_) return;
     try
     {
-        tf_.waitForTransform(odom_frame_, base_frame_, t, ros::Duration(0.5));
-        tf_.lookupTransform(odom_frame_, base_frame_, t, b2o);
+        tf::StampedTransform f2o;
+        tf_->waitForTransform(odom_frame_, fixed_frame_,ros::Time::now() , ros::Duration(0.1));
+        tf_->lookupTransform(odom_frame_, fixed_frame_, ros::Time::now() , f2o);
+        pose = f2o*pose;
+    }
+    catch (tf::TransformException ex)
+    {
+        //ROS_WARN("Cannot get fixed to odom tf: %s", ex.what());
+        return;
+    }
+    // odom pose
+    double yaw = tf::getYaw(pose.getRotation());
+
+    karto::Pose2 karto_pose = 
+            karto::Pose2(pose.getOrigin().x(),
+                        pose.getOrigin().y(),
+                        yaw);
+    if (registerScan(dev,aScan, karto_pose))
+    {
+        // scan is valid
+        // update the map if it fall to a time interval
+        if ( map_init_ || aScan.scan->header.stamp - last_update_map_ > map_update_rate_)
+        {
+            // update the map
+            // TODO
+            if(updateMap())
+            {
+                last_update_map_ = aScan.scan->header.stamp;
+                map_init_ = false;
+            }
+        }
+    }
+
+}
+bool DSlamKarto::getOdom(karto::Pose2 &odom, const AnnotatedScan& aScan)
+{
+    tf::StampedTransform b2o;
+    if(!tf_) return false;
+    try
+    {
+        tf_->waitForTransform(odom_frame_, aScan.base_frame_id, aScan.scan->header.stamp, ros::Duration(0.5));
+        tf_->lookupTransform(odom_frame_, aScan.base_frame_id, aScan.scan->header.stamp, b2o);
         odom = karto::Pose2(
             b2o.getOrigin().x(),
             b2o.getOrigin().y(),
@@ -221,7 +275,7 @@ bool DSlamKarto::getOdom(karto::Pose2 &odom, const ros::Time &t)
     }
     catch (tf::TransformException ex)
     {
-        ROS_ERROR("Cannot get laser to baser tf: %s", ex.what());
+        ROS_ERROR("Cannot get base to odom tf: %s", ex.what());
         return false;
     }
 }
@@ -277,54 +331,53 @@ bool DSlamKarto::updateMap()
     delete kmap;
     return true;
 }
-karto::LaserRangeFinder *DSlamKarto::getRFDevice(const sensor_msgs::LaserScan::ConstPtr &scan)
+karto::LaserRangeFinder *DSlamKarto::getRFDevice(const AnnotatedScan& scan)
 {
-    if (devices_.find(scan->header.frame_id) == devices_.end())
+    if (devices_.find(scan.scan->header.frame_id) == devices_.end())
     {
         // device not found
         // create new one
         // 1. get laser to base transformation
         tf::StampedTransform l2b;
+        if(!tf_) return NULL;
         try
         {
-            tf_.waitForTransform(base_frame_, scan->header.frame_id,
-                                      scan->header.stamp, ros::Duration(0.5));
-            tf_.lookupTransform(base_frame_, scan->header.frame_id,
-                                     scan->header.stamp, l2b);
+            tf_->waitForTransform(scan.base_frame_id, scan.scan->header.frame_id,
+                                      scan.scan->header.stamp, ros::Duration(0.5));
+            tf_->lookupTransform(scan.base_frame_id, scan.scan->header.frame_id,
+                                     scan.scan->header.stamp, l2b);
         }
         catch (tf::TransformException ex)
         {
-            ROS_ERROR("Cannot get laser to baser tf: %s", ex.what());
+            ROS_ERROR("Cannot get laser to base tf: %s", ex.what());
             return NULL;
         }
         // 2.create new device
         karto::LaserRangeFinder *dev =
             karto::LaserRangeFinder::CreateLaserRangeFinder(
                 karto::LaserRangeFinder_Custom,
-                karto::Name(scan->header.frame_id));
+                karto::Name(scan.scan->header.frame_id));
         dev->SetOffsetPose(karto::Pose2(l2b.getOrigin().x(),
                                         l2b.getOrigin().y(),
                                         tf::getYaw(l2b.getRotation())));
-        dev->SetMinimumRange(scan->range_min);
-        dev->SetMaximumRange(scan->range_max);
-        dev->SetMinimumAngle(scan->angle_min);
-        dev->SetMaximumAngle(scan->angle_max);
-        dev->SetAngularResolution(scan->angle_increment);
+        dev->SetMinimumRange(scan.scan->range_min);
+        dev->SetMaximumRange(scan.scan->range_max);
+        dev->SetMinimumAngle(scan.scan->angle_min);
+        dev->SetMaximumAngle(scan.scan->angle_max);
+        dev->SetAngularResolution(scan.scan->angle_increment);
 
-        devices_[scan->header.frame_id] = dev;
+        devices_[scan.scan->header.frame_id] = dev;
         database_->Add(dev);
     }
 
-    return devices_[scan->header.frame_id];
+    return devices_[scan.scan->header.frame_id];
 }
 bool DSlamKarto::registerScan(karto::LaserRangeFinder *dev,
-                              const sensor_msgs::LaserScan::ConstPtr &scan,
+                              const AnnotatedScan& aScan,
                               karto::Pose2 &odom)
 {
-    if (!getOdom(odom, scan->header.stamp))
-        return false;
     std::vector<kt_double> ranges;
-    for (std::vector<float>::const_iterator it = scan->ranges.begin(); it != scan->ranges.end(); it++)
+    for (std::vector<float>::const_iterator it = aScan.scan->ranges.begin(); it != aScan.scan->ranges.end(); it++)
     {
         ranges.push_back(*it);
     }
