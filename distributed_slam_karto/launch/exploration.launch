@@ -23,7 +23,7 @@
     <include file="$(find distributed_slam_karto)/launch/single_robot_config.launch">
         <arg name ="namespace" value="r2"/>
         <arg name = "init_x" value="-2.0" />
-        <arg name = "init_y" value="-4.0" />
+        <arg name = "init_y" value="-7.5" />
         <arg name = "init_z" value="0.0" />
     </include>
 

@@ -11,14 +11,13 @@ Panels:
         - /RobotModel1
         - /Axes2
         - /Map1
+        - /Map2
         - /LaserScan1
         - /Path1
         - /RobotModel2
         - /Path2
-        - /MarkerArray1
         - /Marker2
         - /Marker3
-        - /Map2
       Splitter Ratio: 0.5
     Tree Height: 775
   - Class: rviz/Selection
@@ -81,7 +80,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -98,14 +97,14 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Arrow Length: 0.300000012
       Axes Length: 0.300000012
       Axes Radius: 0.00999999978
       Class: rviz/PoseArray
       Color: 255; 25; 0
-      Enabled: true
+      Enabled: false
       Head Length: 0.0700000003
       Head Radius: 0.0299999993
       Name: PoseArray
@@ -114,7 +113,7 @@ Visualization Manager:
       Shape: Arrow (Flat)
       Topic: /r1/frontiers
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
@@ -182,26 +181,36 @@ Visualization Manager:
       Value: true
       Visual Enabled: true
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 1
       Name: Axes
       Radius: 0.100000001
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 1
       Name: Axes
       Radius: 0.100000001
       Reference Frame: r1/odom
-      Value: true
+      Value: false
     - Alpha: 0.699999988
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: Map
       Topic: /r2/map
+      Unreliable: false
+      Use Timestamp: false
+      Value: false
+    - Alpha: 0.699999988
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Map
+      Topic: /r1/map
       Unreliable: false
       Use Timestamp: false
       Value: true
@@ -238,7 +247,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 255; 255; 255
       Enabled: true
       Head Diameter: 0.300000012
       Head Length: 0.200000003
@@ -347,14 +356,6 @@ Visualization Manager:
       Topic: /r2/move_base/GlobalPlanner/plan
       Unreliable: false
       Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: visualization_marker_array
-      Name: MarkerArray
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /r1/constraints
@@ -364,23 +365,13 @@ Visualization Manager:
       Queue Size: 99
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /r2/constraints
       Name: Marker
       Namespaces:
-        points_and_lines: true
+        {}
       Queue Size: 100
-      Value: true
-    - Alpha: 0.699999988
-      Class: rviz/Map
-      Color Scheme: raw
-      Draw Behind: false
-      Enabled: true
-      Name: Map
-      Topic: /r1/map
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -406,16 +397,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 24.6822433
+      Distance: 20.1110725
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.95095968
-        Y: -6.48118067
-        Z: -0.136491358
+        X: 3.50863647
+        Y: -6.05458403
+        Z: -0.0731053352
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.0500000007
       Invert Z Axis: false

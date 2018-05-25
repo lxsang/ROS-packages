@@ -4,7 +4,7 @@
 
   <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
 
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find distributed_slam_karto)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
   
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
     <param name="publish_frequency" type="double" value="30.0" />
@@ -72,6 +72,13 @@
         <param name="map_out_topic" value="/map"/>
     </node>
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>
+
+    <node pkg="noisy_odometry" type="noisy_odom" name="noisy_odom" output="screen" >
+      <param name="alpha1" value="0.15"/>
+      <param name="alpha2" value="0.26"/>
+      <param name="alpha3" value="0.2"/>
+      <param name="alpha4" value="0.01"/>
+    </node>
 
     <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen"   >
         <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>

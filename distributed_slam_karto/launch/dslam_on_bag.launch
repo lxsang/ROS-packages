@@ -18,17 +18,13 @@
   </include>
 
    <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
-
-    <!--node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen">
-        <param name="odom_frame" value="odom"/>
-        <param name="map_update_interval" value="5"/>
-        <param name="resolution" value="0.05"/>
-        <rosparam command="load" file="$(find slam_karto_g2o)/config/mapping_karto_g2o.yaml" />
-  </node-->
   
   <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen"   >
     <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
     </node>
+ <!--node pkg="slam_karto_g2o" type="slam_karto_g2o" name="slam_karto_g2o" output="screen">
+    <rosparam command="load" file="$(find slam_karto_g2o)/config/mapping_karto_g2o.yaml" />
+  </node-->
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find dslam)/launch/rvizconf.rviz"/>
 </launch>
