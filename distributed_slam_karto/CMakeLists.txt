@@ -15,6 +15,32 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs
     tf
     visualization_msgs
+    message_generation
+)
+
+add_message_files(
+  FILES
+  Edge.msg
+  LaserDevice.msg
+  Vertex.msg
+  Link.msg
+  Graph.msg
+)
+
+add_service_files(
+  FILES
+  SyncGraph.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  #distributed_slam_karto
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime
 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
@@ -71,6 +97,14 @@ add_executable(d_slam_karto
 )
 add_dependencies(d_slam_karto prebuild dsk)
 target_link_libraries(d_slam_karto dsk)
+
+
+add_executable(graph_sync
+  src/graph_sync.cpp
+)
+
+target_link_libraries(graph_sync ${catkin_LIBRARIES} )
+
 
 add_executable(2laser_slam_karto
   src/dslam_karto_2_laser.cpp

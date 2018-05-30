@@ -12,9 +12,19 @@
             <param name="publish_frequency" type="double" value="30.0" />
         </node>
 
-    <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global" respawn="true">
-    
-    <rosparam ns="costmap" subst_value="true">
+        <node pkg="noisy_odometry" type="noisy_odometry.py" name="noisy_odom" output="screen">
+            <param name="old_odom_topic" value="/$(arg namespace)/odom"/>
+            <param name="odom_frame" value="/$(arg namespace)/odom"/>
+            <param name="base_frame" value="/$(arg namespace)/base_footprint"/>
+            <param name="alpha1" value="0.02"/>
+            <param name="alpha2" value="0.26"/>
+            <param name="alpha3" value="0.05"/>
+            <param name="alpha4" value="0.01"/>
+        </node>
+
+        <node pkg="costmap_2d" type="costmap_2d_node" name="costmap_for_exploration_global" respawn="true">
+
+            <rosparam ns="costmap" subst_value="true">
       global_frame: map
       robot_base_frame: base_link
       update_frequency: 1.0
@@ -36,48 +46,48 @@
         inflation_radius: 0.5
 
     </rosparam>
-  </node>
-<include file="$(find distributed_slam_karto)/launch/includes/move_base.launch.xml" >
-    <arg name="odom_frame_id"   value="/$(arg namespace)/odom"/>
-    <arg name="base_frame_id"   value="/$(arg namespace)/base_link"/>
-    <arg name="global_frame_id" value="/$(arg namespace)/map"/>
-    <arg name="odom_topic" value="/$(arg namespace)/odom" />
-    <arg name="laser_topic" value="/$(arg namespace)/scan" />
-    <arg name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity" />
-    <arg name="namespace" value= "$(arg namespace)" />
-</include>
+        </node>
+        <include file="$(find distributed_slam_karto)/launch/includes/move_base.launch.xml">
+            <arg name="odom_frame_id" value="/$(arg namespace)/odom"/>
+            <arg name="base_frame_id" value="/$(arg namespace)/base_link"/>
+            <arg name="global_frame_id" value="/$(arg namespace)/map"/>
+            <arg name="odom_topic" value="/$(arg namespace)/odom" />
+            <arg name="laser_topic" value="/$(arg namespace)/scan" />
+            <arg name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity" />
+            <arg name="namespace" value= "$(arg namespace)" />
+        </include>
 
 
-  <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
-      <param name="map" value="/$(arg namespace)/costmap_for_exploration_global/costmap/costmap"/>
-      <param name="min_frontier_size_px" value="10"/>
-      <param name="frontiers_map" value="/$(arg namespace)/frontiers_map" />
-      <param name="frontiers_topic" value="/$(arg namespace)/frontiers" />
-      <param name="base_frame" value="$(arg namespace)/base_link"/>
-    </node>
+        <node pkg="frontier_allocation" type="frontier_detection" name="frontier_detection" output="screen">
+            <param name="map" value="/$(arg namespace)/costmap_for_exploration_global/costmap/costmap"/>
+            <param name="min_frontier_size_px" value="10"/>
+            <param name="frontiers_map" value="/$(arg namespace)/frontiers_map" />
+            <param name="frontiers_topic" value="/$(arg namespace)/frontiers" />
+            <param name="base_frame" value="$(arg namespace)/base_link"/>
+        </node>
 
-    <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation">
-        <param name="goal_tolerance" value="0.5"/>
-        <param name="frontier_tolerance" value="0.05"/>
-        <param name="random_frontier" value="false"/>
-        <param name="bird_view" value="true"/>
-        <param name="planner_service" value="/$(arg namespace)/move_base/GlobalPlanner/make_plan" />
-        <param name="map_frame" value="$(arg namespace)/map" />
-        <param name="base_frame" value="$(arg namespace)/base_link" />
-        <param name="goal_topic" value="/$(arg namespace)/move_base_simple/goal" />
-        <param name="pf_status" value="/$(arg namespace)/move_base/PFLocalPlanner/pf_status" />
-        <param name="cmd_vel_topic" value="/$(arg namespace)/cmd_vel" />
-        <param name="move_base_status" value="/$(arg namespace)/move_base/status" />
-        <param name="frontier_topic" value="/$(arg namespace)/frontiers" />
+        <node pkg="frontier_allocation" type="frontier_allocation" name="frontier_allocation">
+            <param name="goal_tolerance" value="0.5"/>
+            <param name="frontier_tolerance" value="0.05"/>
+            <param name="random_frontier" value="false"/>
+            <param name="bird_view" value="true"/>
+            <param name="planner_service" value="/$(arg namespace)/move_base/GlobalPlanner/make_plan" />
+            <param name="map_frame" value="$(arg namespace)/map" />
+            <param name="base_frame" value="$(arg namespace)/base_link" />
+            <param name="goal_topic" value="/$(arg namespace)/move_base_simple/goal" />
+            <param name="pf_status" value="/$(arg namespace)/move_base/PFLocalPlanner/pf_status" />
+            <param name="cmd_vel_topic" value="/$(arg namespace)/cmd_vel" />
+            <param name="move_base_status" value="/$(arg namespace)/move_base/status" />
+            <param name="frontier_topic" value="/$(arg namespace)/frontiers" />
 
-        <param name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity"/>
-    </node>  
+            <param name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity"/>
+        </node>
 
-    <node pkg="distributed_slam_karto" type="2laser_slam_karto" name="d_slam_karto" output="screen"   >
-        <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
-        <param name="prefix"  value="$(arg namespace)" />
-    </node>
+        <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen" launch-prefix="gdb -ex run --args" >
+            <param name="conf_file" value="$(find distributed_slam_karto)/launch/config.lua"/>
+            <param name="prefix" value="$(arg namespace)" />
+        </node>
     </group>
 
-    
+
 </launch>

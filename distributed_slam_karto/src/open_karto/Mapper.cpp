@@ -67,6 +67,16 @@ namespace karto
     }
 
   public:
+    inline void AddScan(LocalizedRangeScan* pScan, kt_int32s uniqueId, kt_int32s state_id)
+    {
+      pScan->SetStateId(state_id);
+
+      // assign unique id to scan
+      pScan->SetUniqueId(uniqueId);
+
+      // add it to scan buffer
+      m_Scans.push_back(pScan);
+    }
     /**
      * Adds scan to vector of processed scans tagging scan with given unique id
      * @param pScan
@@ -228,6 +238,11 @@ namespace karto
     m_NextScanId++;
   }
 
+  void MapperSensorManager::AddScan(LocalizedRangeScan* pScan, kt_int32u id, kt_int32u sid)
+  {
+    RegisterSensor(pScan->GetSensorName());
+    GetScanManager(pScan)->AddScan(pScan,id,sid);
+  }
   /**
    * Adds scan to running scans of device that recorded scan
    * @param pScan

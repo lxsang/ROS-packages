@@ -27,13 +27,14 @@
         <arg name = "init_z" value="0.0" />
     </include>
 
-    <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node-->
+    <!--Syn graph of robot 2 to robot 1-->
 
-  <!--node name="flat_world_imu_node" pkg="cartographer_turtlebot"
-      type="cartographer_flat_world_imu_node" output="screen">
-    <remap from="imu_in" to="/mobile_base/sensors/imu_data_raw" />
-    <remap from="imu_out" to="/imu" />
-  </node-->
+    <node name="syn_graph" pkg="distributed_slam_karto" type="graph_sync" >
+      <param name="graph_topic" value="/r2/pose_graph" />
+      <param name="syn_service" value="/r1/dslam_sync_graph" />
+    </node>
+
+    <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node-->
 
  
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find distributed_slam_karto)/launch/includes/viewer.rviz"/>

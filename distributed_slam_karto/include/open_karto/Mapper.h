@@ -115,6 +115,7 @@ namespace karto
      * @param rPose2
      * @param rCovariance
      */
+    LinkInfo(){}
     LinkInfo(const Pose2& rPose1, const Pose2& rPose2, const Matrix3& rCovariance)
     {
       Update(rPose1, rPose2, rCovariance);
@@ -128,6 +129,15 @@ namespace karto
     }
 
   public:
+    void setLink(const Pose2& pose1, const Pose2& pose2, const Matrix3& cov)
+    {
+      m_Pose1 = pose1;
+      m_Pose2 = pose2;
+      m_Covariance = cov;
+       // transform second pose into the coordinate system of the first pose
+      Transform transform(pose1, Pose2());
+      m_PoseDifference = transform.TransformPose(pose2);
+    }
     /**
      * Changes the link information to be the given parameters
      * @param rPose1
@@ -567,6 +577,10 @@ namespace karto
      */
     void AddVertex(LocalizedRangeScan* pScan);
 
+    inline void AddEdge(Edge<LocalizedRangeScan>* pEdge)
+    {
+      Graph<LocalizedRangeScan>::AddEdge(pEdge);
+    }
     /**
      * Creates an edge between the source scan vertex and the target scan vertex if it
      * does not already exist; otherwise return the existing edge
@@ -1270,6 +1284,8 @@ namespace karto
      */
     void AddScan(LocalizedRangeScan* pScan);
 
+    void AddScan(LocalizedRangeScan* pScan, kt_int32u id, kt_int32u sid);
+
     /**
      * Adds scan to running scans of device that recorded scan
      * @param pScan
@@ -1527,7 +1543,7 @@ namespace karto
      * @param rangeThreshold
      */
     void Initialize(kt_double rangeThreshold);
-
+  
     /**
      * Resets the mapper.
      * Deallocate memory allocated in Initialize()
