@@ -37,6 +37,8 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
 
     publish_graph_ = config.get<bool>("publish_graph", false);
 
+    offset_id_ = (unsigned int)config.get<double>("graph_offset_id",0.0);
+
     mapper_ = new karto::Mapper();
     database_ = new karto::Dataset();
 
@@ -88,13 +90,144 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
 
     mapper_->SetScanSolver(optimizer_);
 
-    std::string constraints_topic = config.get<std::string>("constraints_topic", "/constraints");
+    std::string graph_topic = config.get<std::string>("graph_topic", "/graph");
+    std::string srv_name = config.get<std::string>("graph_sync_service", "dslam_sync_graph");
     // publisher
     map_pub_ = nh.advertise<nav_msgs::OccupancyGrid>(map_topic, 1);
     if(publish_graph_)
     {
-        constraint_pub_ = nh.advertise< visualization_msgs::Marker>(constraints_topic, 10);
+        //constraint_pub_ = nh.advertise< visualization_msgs::Marker>(constraints_topic, 5);
+        graph_pub_ = nh.advertise<distributed_slam_karto::Graph>(graph_topic, 2);
+        sync_srv_ = nh.advertiseService(srv_name, &DSlamKarto::syncGraphService, this);
     }
+}
+
+void DSlamKarto::transformPose(tf::StampedTransform& g2g, geometry_msgs::Point& p)
+{
+    tf::Transform pose(tf::createQuaternionFromRPY(0,0,p.z),tf::Vector3(p.x,p.y,0));
+    pose = g2g*pose;
+    p.x = pose.getOrigin().getX();
+    p.y = pose.getOrigin().getY();
+    p.z = tf::getYaw(pose.getRotation());
+}
+
+bool DSlamKarto::syncGraphService(distributed_slam_karto::SyncGraph::Request& rq, distributed_slam_karto::SyncGraph::Response & res)
+{
+    boost::mutex::scoped_lock lock(mutex_);
+    // check if transform is available
+    tf::StampedTransform g2g;
+    if(!mapper_ || !tf_) return false;
+    try
+    {
+        tf_->waitForTransform(fixed_frame_, rq.graph.frame_id,ros::Time::now() , ros::Duration(0.5));
+        tf_->lookupTransform(fixed_frame_, rq.graph.frame_id, ros::Time::now() , g2g);
+    }
+    catch (tf::TransformException ex)
+    {
+        ROS_WARN("Cannot get fixed to fixed tf: %s", ex.what());
+        return false;
+    }
+    // add laser device if not exist
+    for(auto it = rq.graph.devices.begin(); it != rq.graph.devices.end(); it++)
+        if(devices_.find(it->frame_id) == devices_.end())
+        {
+            // add new device
+            karto::LaserRangeFinder *dev =
+            karto::LaserRangeFinder::CreateLaserRangeFinder(
+                karto::LaserRangeFinder_Custom,
+                karto::Name(it->frame_id));
+            dev->SetOffsetPose(karto::Pose2(it->offset.x,it->offset.y,it->offset.z));
+            dev->SetMinimumRange(it->min_range);
+            dev->SetMaximumRange(it->max_range);
+            dev->SetMinimumAngle(it->min_angle);
+            dev->SetMaximumAngle(it->max_angle);
+            dev->SetAngularResolution(it->resolution);
+            devices_[it->frame_id] = dev;
+            database_->Add(dev);
+        }
+    // add vertex
+    for(auto it = rq.graph.vertices.begin(); it != rq.graph.vertices.end(); it++)
+    {
+        karto::Vertex<karto::LocalizedRangeScan>* v;
+        //check if vertex exist
+        if((v=getVertex(it->dev_name,it->state_id)) != NULL)
+        {
+            //ROS_WARN("Vertex %d:%d exist", v->GetObject()->GetStateId(), v->GetObject()->GetUniqueId());
+            continue;
+        }
+        ROS_INFO("Adding node %d of device %s", it->state_id, it->dev_name.c_str());
+        std::vector<kt_double> ranges;
+        for(auto vit = it->ranges.begin(); vit != it->ranges.end(); vit++) ranges.push_back(*vit);
+        // create karto range scan
+        karto::LocalizedRangeScan *kscan = new karto::LocalizedRangeScan(karto::Name(it->dev_name), ranges);
+        transformPose(g2g, it->odom_pose);
+        kscan->SetOdometricPose(karto::Pose2(it->odom_pose.x,it->odom_pose.y,it->odom_pose.z));
+        transformPose(g2g, it->corrected_pose);
+        kscan->SetCorrectedPose(karto::Pose2(it->corrected_pose.x,it->corrected_pose.y,it->corrected_pose.z));
+        //kscan->SetUniqueId();
+        //kscan->SetStateId(it->state_id);
+        // add vertex
+        mapper_->GetMapperSensorManager()->AddScan(kscan, it->id + rq.graph.offset_id, it->state_id);
+        mapper_->GetGraph()->AddVertex(kscan);
+        database_->Add(kscan);
+        // TODO: generate constrains if exist
+    }
+    for(auto it = rq.graph.edges.begin(); it != rq.graph.edges.end(); it++)
+    {
+        // find vertex
+        karto::Vertex<karto::LocalizedRangeScan>* v1 = getVertex(it->dev_name,it->source_id);
+        karto::Vertex<karto::LocalizedRangeScan>* v2 = getVertex(it->dev_name,it->target_id);
+        if(!v1)
+        {
+            ROS_WARN("Cannot find vertex %d of devices %s", it->source_id, it->dev_name.c_str());
+            continue;
+        }
+        if(!v2)
+        {
+            ROS_WARN("Cannot find vertex %d of devices %s", it->target_id, it->dev_name.c_str());
+            continue;
+        }
+        // check if the edge exist
+        bool has_edge = false;
+        karto::Edge<karto::LocalizedRangeScan>* pEdge;
+        for(auto eit = v1->GetEdges().begin(); eit!= v1->GetEdges().end(); eit++)
+        {
+            pEdge = *eit;
+
+            if (pEdge->GetTarget() == v2)
+            {
+                has_edge = true;
+                break;
+            }
+        }
+        if(has_edge)
+        {
+            //ROS_WARN("Edge %d->%d exist", v1->GetObject()->GetUniqueId(), v2->GetObject()->GetUniqueId());
+            continue;
+        }
+        // create new edge
+        ROS_INFO("Add Edge %d->%d", v1->GetObject()->GetUniqueId(), v2->GetObject()->GetUniqueId());
+        pEdge = new karto::Edge<karto::LocalizedRangeScan>(v1, v2);
+        // restore the link
+        karto::LinkInfo* link = new karto::LinkInfo();
+        karto::Matrix3 cov;
+        for(int i = 0; i< 3; i++)
+            for(int j=0; j < 3; j ++)
+                cov(i,j) = it->link.covariance[i*3+j];
+        transformPose(g2g, it->link.pose1);
+        transformPose(g2g, it->link.pose2);
+        link->setLink(karto::Pose2(it->link.pose1.x,it->link.pose1.y,it->link.pose1.z ),
+                    karto::Pose2(it->link.pose2.x,it->link.pose2.y,it->link.pose2.z),
+                    cov);
+        pEdge->SetLabel(link);
+        mapper_->GetGraph()->AddEdge(pEdge);
+        // add to optimizer
+        if(optimizer_)
+            optimizer_->AddConstraint(pEdge);
+    }
+    res.sync = true;
+    // add edge
+    return true;
 }
 void DSlamKarto::publishTf()
 {
@@ -108,14 +241,57 @@ void DSlamKarto::publishMap()
     if(map_init_) return;
     map_pub_.publish(map_);
 }
+void DSlamKarto::getDevices(std::vector<distributed_slam_karto::LaserDevice> &devs)
+{
+    for ( auto mit = devices_.begin(); mit != devices_.end(); mit++ )
+    {
+        distributed_slam_karto::LaserDevice dev;
+        dev.frame_id = mit->first;
+        dev.min_range = mit->second->GetMinimumRange();
+        dev.max_range = mit->second->GetMaximumRange();
+        dev.min_angle = mit->second->GetMinimumAngle();
+        dev.max_angle = mit->second->GetMaximumAngle();
+        dev.resolution = mit->second->GetAngularResolution();
+        dev.offset.x = mit->second->GetOffsetPose().GetX();
+        dev.offset.y = mit->second->GetOffsetPose().GetY();
+        dev.offset.z = mit->second->GetOffsetPose().GetHeading();
+        devs.push_back(dev);
+    }
+}
+karto::Vertex<karto::LocalizedRangeScan>* DSlamKarto::getVertex(std::string n, int state_id)
+{
+    //boost::mutex::scoped_lock lock(mutex_);
+    if(!mapper_->GetGraph()) return NULL;
+    karto::Name name(n);
+    std::map<karto::Name,std::vector<karto::Vertex<karto::LocalizedRangeScan>*>> vertices;
+    vertices = mapper_->GetGraph()->GetVertices();
+
+    if(vertices.find(name) == vertices.end() || state_id > vertices[name].size() - 1 )
+    {
+        return NULL;
+    }
+
+    return vertices[name][state_id];
+}
 void DSlamKarto::publishGraph()
 {
-    if(!publish_graph_ || !optimizer_) return;
-    std::vector<Eigen::Vector2d> nodes;
-    std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d> > edges;
-    optimizer_->getGraph(nodes, edges);
+    if(!publish_graph_ || !mapper_->GetGraph()) return;
+    std::map<karto::Name,std::vector<karto::Vertex<karto::LocalizedRangeScan>*>> vertices;
+    std::vector<karto::Edge<karto::LocalizedRangeScan>*> edges;
+    vertices = mapper_->GetGraph()->GetVertices();
+    edges = mapper_->GetGraph()->GetEdges();
 
-    visualization_msgs::Marker points, line_list;
+    distributed_slam_karto::Graph msg;
+    msg.offset_id = offset_id_;
+    msg.frame_id = fixed_frame_;
+    getDevices(msg.devices);
+    // get all devices
+
+    //std::vector<Eigen::Vector2d> nodes;
+    //std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d> > edges;
+    //optimizer_->getGraph(nodes, edges);
+
+    /*visualization_msgs::Marker points, line_list;
 
     points.header.frame_id =  line_list.header.frame_id = fixed_frame_;
     points.header.stamp =  line_list.header.stamp = ros::Time::now();
@@ -143,31 +319,70 @@ void DSlamKarto::publishGraph()
     line_list.color.a = 1.0;
 
     geometry_msgs::Point p;
-    for(auto it = nodes.begin(); it != nodes.end(); it++)
+    */
+    // vertex
+
+    for ( auto mit = vertices.begin(); mit != vertices.end(); mit++ )
     {
-        
-        p.x = (*it)(0);
-        p.y = (*it)(1);
-        p.z = 0;
-        points.points.push_back(p);
+       for(auto it = mit->second.begin(); it != mit->second.end(); it++)
+        {
+            distributed_slam_karto::Vertex vtx;
+            //vertex
+            vtx.id = (*it)->GetObject()->GetUniqueId();
+            vtx.state_id = (*it)->GetObject()->GetStateId();
+            vtx.dev_name = mit->first.ToString();
+            vtx.odom_pose.x = (*it)->GetObject()->GetOdometricPose().GetX();
+            vtx.odom_pose.y = (*it)->GetObject()->GetOdometricPose().GetY();
+            vtx.odom_pose.z = (*it)->GetObject()->GetOdometricPose().GetHeading();
+            vtx.corrected_pose.x = (*it)->GetObject()->GetCorrectedPose().GetX();
+            vtx.corrected_pose.y = (*it)->GetObject()->GetCorrectedPose().GetY();
+            vtx.corrected_pose.z = (*it)->GetObject()->GetCorrectedPose().GetHeading();
+            kt_double* data  = (*it)->GetObject()->GetRangeReadings();
+            for(int i=0; i <  (*it)->GetObject()->GetNumberOfRangeReadings(); i++)
+                vtx.ranges.push_back(data[i]);
+            msg.vertices.push_back(vtx);
+
+            /*p.x = (*it)->GetObject()->GetCorrectedPose().GetX();
+            p.y = (*it)->GetObject()->GetCorrectedPose().GetY();
+            p.z = 0;
+            points.points.push_back(p);*/
+        } 
     }
+    
 
     for(auto it = edges.begin(); it != edges.end(); it++)
     {
-        p.x = it->first(0);
-        p.y = it->first(1);
+        distributed_slam_karto::Edge edge;
+        edge.source_id = (*it)->GetSource()->GetObject()->GetStateId();
+        edge.target_id = (*it)->GetTarget()->GetObject()->GetStateId();
+        edge.dev_name = (*it)->GetSource()->GetObject()->GetSensorName().ToString();
+        karto::LinkInfo* link= (karto::LinkInfo*)(*it)->GetLabel();
+        edge.link.pose1.x = link->GetPose1().GetX();
+        edge.link.pose1.y = link->GetPose1().GetY();
+        edge.link.pose1.z = link->GetPose1().GetHeading();
+        edge.link.pose2.x = link->GetPose2().GetX();
+        edge.link.pose2.y = link->GetPose2().GetY();
+        edge.link.pose2.z = link->GetPose2().GetHeading();
+        for(int i = 0; i < 3; i++)
+            for(int j= 0; j<3; j++)
+                edge.link.covariance.push_back(link->GetCovariance()(i,j));
+        msg.edges.push_back(edge);
+
+        /*p.x = (*it)->GetSource()->GetObject()->GetCorrectedPose().GetX();
+        p.y = (*it)->GetSource()->GetObject()->GetCorrectedPose().GetY();
         p.z = 0;
         line_list.points.push_back(p);
 
-        p.x = it->second(0);
-        p.y = it->second(1);
+        p.x = (*it)->GetTarget()->GetObject()->GetCorrectedPose().GetX();
+        p.y = (*it)->GetTarget()->GetObject()->GetCorrectedPose().GetY();
         p.z = 0;
-        line_list.points.push_back(p);
+        line_list.points.push_back(p);*/
     }
 
     // publish the message
-    constraint_pub_.publish(points);
-    constraint_pub_.publish(line_list);
+    //constraint_pub_.publish(points);
+    //constraint_pub_.publish(line_list);
+    graph_pub_.publish(msg);
 }
 void DSlamKarto::laserCallback(const AnnotatedScan& aScan)
 {

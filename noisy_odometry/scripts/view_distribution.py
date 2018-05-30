@@ -9,14 +9,14 @@ trans = sqrt(dx*dx + dy*dy)
 # rotation1 = 30 degree
 theta1 = 30.0*pi/180.0
 # rotation2 = 45 degree
-theta2 = 45.0*pi/180.0
+theta2 = 10.0*pi/180.0
 
 rot1 = atan2(dy, dx) - theta1
 rot2 = theta2-theta1-rot1
 
-a1 = 15.0*pi/180.0
+a1 = 0.05
 a2 = 15.0*pi/180.0
-a3 = 0.2
+a3 = 0.05
 a4 = 0.01
 sd_rot1 = a1*abs(rot1) + a2*trans
 sd_rot2 = a1*abs(rot2) + a2*trans

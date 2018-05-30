@@ -8,7 +8,10 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
-#include <visualization_msgs/Marker.h>
+//#include <visualization_msgs/Marker.h>
+#include <distributed_slam_karto/Graph.h>
+#include <distributed_slam_karto/SyncGraph.h>
+#include "open_karto/Karto.h"
 #include "open_karto/Mapper.h"
 
 #include "open_karto/G2OSolver.h"
@@ -31,6 +34,7 @@ namespace dslam {
             void setTFListener(tf::TransformListener* tf) { tf_ = tf; };
             void laserCallback(const AnnotatedScan&);
             void laserCallback(const AnnotatedScan&, karto::Pose2&);
+            karto::Vertex<karto::LocalizedRangeScan>* getVertex(std::string, int);
         private:
             bool getOdom(karto::Pose2&, const AnnotatedScan&);
             karto::LaserRangeFinder* getRFDevice(const AnnotatedScan&);
@@ -38,6 +42,9 @@ namespace dslam {
                  const AnnotatedScan& ,
                  karto::Pose2& );
             bool  updateMap();
+            void getDevices(std::vector<distributed_slam_karto::LaserDevice> &);
+            void transformPose(tf::StampedTransform&, geometry_msgs::Point&);
+            bool syncGraphService(distributed_slam_karto::SyncGraph::Request&, distributed_slam_karto::SyncGraph::Response &);
             tf::TransformListener* tf_;
             tf::TransformBroadcaster tf_broadcaster_;
             tf::Transform fixed_to_odom_;
@@ -55,9 +62,12 @@ namespace dslam {
             karto::Dataset* database_;
             G2OSolver* optimizer_;
             
-            ros::Publisher map_pub_;
-            ros::Publisher constraint_pub_;
+            unsigned int offset_id_;
 
+            ros::Publisher map_pub_;
+            ros::ServiceServer sync_srv_; 
+            //ros::Publisher constraint_pub_;
+            ros::Publisher graph_pub_;
             nav_msgs::OccupancyGrid map_;
              //int throttle_scans_;
              //std::map<std::string, int> num_scans_;

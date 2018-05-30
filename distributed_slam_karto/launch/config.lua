@@ -10,6 +10,7 @@ if config ~= nil then
 end
 
 local dslam = {
+    graph_offset_id = 0.0,
     use_robust_kernel = true,
     odom_frame = tf_prefix.."odom",
     fixed_frame = tf_prefix.."map",
@@ -17,6 +18,8 @@ local dslam = {
     scan_topic= prefix.."scan",
     map_topic = prefix.."map",
     constraints_topic = prefix.."constraints",
+    graph_topic = prefix.."pose_graph",
+    graph_sync_service = prefix.."dslam_sync_graph",
     publish_graph = true,
     --throttle_scans = 1.0,
     map_update_rate = 3.0,
@@ -55,15 +58,16 @@ local dslam = {
 }
 
 -- a second robot
-if config and config.two_robot then
-    if config.prefix=="r1" then
-        dslam.second_scan = "/r2/scan"
-        dslam.second_base_frame = "/r2/base_link"
-        dslam.second_odom = "/r2/odom"
-    else
-        dslam.second_scan = "/r1/scan"
-        dslam.second_base_frame = "/r1/base_link"
-        dslam.second_odom = "/r1/odom"
+if config then
+    if config.prefix=="r2" then
+        dslam.graph_offset_id = 10000
+        --dslam.second_scan = "/r2/scan"
+        --dslam.second_base_frame = "/r2/base_link"
+        --dslam.second_odom = "/r2/odom"
+        --else
+        --dslam.second_scan = "/r1/scan"
+        --dslam.second_base_frame = "/r1/base_link"
+        --dslam.second_odom = "/r1/odom"
     end
 end
 return dslam
