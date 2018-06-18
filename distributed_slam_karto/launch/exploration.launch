@@ -23,7 +23,7 @@
     <include file="$(find distributed_slam_karto)/launch/single_robot_config.launch">
         <arg name ="namespace" value="r2"/>
         <arg name = "init_x" value="-2.0" />
-        <arg name = "init_y" value="-7.5" />
+        <arg name = "init_y" value="-10.5" />
         <arg name = "init_z" value="0.0" />
     </include>
 
@@ -32,6 +32,12 @@
     <node name="syn_graph" pkg="distributed_slam_karto" type="graph_sync" >
       <param name="graph_topic" value="/r2/pose_graph" />
       <param name="syn_service" value="/r1/dslam_sync_graph" />
+    </node>
+
+
+    <node name="syn_graph_1" pkg="distributed_slam_karto" type="graph_sync" >
+      <param name="graph_topic" value="/r1/pose_graph" />
+      <param name="syn_service" value="/r2/dslam_sync_graph" />
     </node>
 
     <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node-->

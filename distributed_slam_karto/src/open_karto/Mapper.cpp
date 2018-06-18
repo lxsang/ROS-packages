@@ -234,7 +234,7 @@ namespace karto
   void MapperSensorManager::AddScan(LocalizedRangeScan* pScan)
   {
     GetScanManager(pScan)->AddScan(pScan, m_NextScanId);
-    m_Scans.push_back(pScan);
+    m_Scans[m_NextScanId] = pScan;
     m_NextScanId++;
   }
 
@@ -242,6 +242,7 @@ namespace karto
   {
     RegisterSensor(pScan->GetSensorName());
     GetScanManager(pScan)->AddScan(pScan,id,sid);
+    m_Scans[id] = pScan;
   }
   /**
    * Adds scan to running scans of device that recorded scan
@@ -1673,6 +1674,7 @@ namespace karto
 
   void Mapper::InitializeParameters()
   {
+    m_IdOffset = 0;
     m_pUseScanMatching = new Parameter<kt_bool>(
         "UseScanMatching",
         "When set to true, the mapper will use a scan matching algorithm. "
@@ -2201,7 +2203,7 @@ namespace karto
 
       m_pMapperSensorManager = new MapperSensorManager(m_pScanBufferSize->GetValue(),
                                                        m_pScanBufferMaximumScanDistance->GetValue());
-
+      m_pMapperSensorManager->SetScanIDOffset(m_IdOffset);
       m_pGraph = new MapperGraph(this, rangeThreshold);
 
       m_Initialized = true;

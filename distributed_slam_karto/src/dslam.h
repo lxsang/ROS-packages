@@ -34,7 +34,8 @@ namespace dslam {
             void setTFListener(tf::TransformListener* tf) { tf_ = tf; };
             void laserCallback(const AnnotatedScan&);
             void laserCallback(const AnnotatedScan&, karto::Pose2&);
-            karto::Vertex<karto::LocalizedRangeScan>* getVertex(std::string, int);
+            karto::Vertex<karto::LocalizedRangeScan>* getVertex(karto::Name, int);
+            karto::Vertex<karto::LocalizedRangeScan>* getVertex(int);
         private:
             bool getOdom(karto::Pose2&, const AnnotatedScan&);
             karto::LaserRangeFinder* getRFDevice(const AnnotatedScan&);

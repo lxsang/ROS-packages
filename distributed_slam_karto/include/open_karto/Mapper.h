@@ -1223,6 +1223,10 @@ namespace karto
     }
 
   public:
+    inline void SetScanIDOffset(kt_int32s o)
+    {
+      m_NextScanId += o;
+    }
     /**
      * Registers a sensor (with given name); do
      * nothing if device already registered
@@ -1273,9 +1277,12 @@ namespace karto
      */
     inline LocalizedRangeScan* GetScan(kt_int32s id)
     {
-      assert(math::IsUpTo(id, (kt_int32s)m_Scans.size()));
-
-      return m_Scans[id];
+      //assert(math::IsUpTo(id, (kt_int32s)m_Scans.size()));
+      auto v = m_Scans.find(id);
+      if(v == m_Scans.end())
+        return NULL;
+      else
+        return v->second;
     }
 
     /**
@@ -1351,7 +1358,7 @@ namespace karto
 
     kt_int32s m_NextScanId;
 
-    std::vector<LocalizedRangeScan*> m_Scans;
+    std::map<kt_int32s,LocalizedRangeScan*> m_Scans;
   };  // MapperSensorManager
 
   ////////////////////////////////////////////////////////////////////////////////////////
@@ -1696,10 +1703,13 @@ namespace karto
 
   public:
     void SetUseScanMatching(kt_bool val) { m_pUseScanMatching->SetValue(val); }
-
+    inline void setIDOffet(kt_int32s o)
+    {
+      m_IdOffset = o;
+    }
   private:
     kt_bool m_Initialized;
-
+    kt_int32s m_IdOffset;
     ScanMatcher* m_pSequentialScanMatcher;
 
     MapperSensorManager* m_pMapperSensorManager;

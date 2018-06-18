@@ -89,6 +89,7 @@ void DSlamKarto::configure(Configuration &config, ros::NodeHandle &nh)
     optimizer_->useRobustKernel(use_robust_kernel);
 
     mapper_->SetScanSolver(optimizer_);
+    mapper_->setIDOffet(offset_id_);
 
     std::string graph_topic = config.get<std::string>("graph_topic", "/graph");
     std::string srv_name = config.get<std::string>("graph_sync_service", "dslam_sync_graph");
@@ -148,9 +149,10 @@ bool DSlamKarto::syncGraphService(distributed_slam_karto::SyncGraph::Request& rq
     // add vertex
     for(auto it = rq.graph.vertices.begin(); it != rq.graph.vertices.end(); it++)
     {
+        karto::Name dname(it->dev_name);
         karto::Vertex<karto::LocalizedRangeScan>* v;
         //check if vertex exist
-        if((v=getVertex(it->dev_name,it->state_id)) != NULL)
+        if((v=getVertex(dname,it->state_id)) != NULL)
         {
             //ROS_WARN("Vertex %d:%d exist", v->GetObject()->GetStateId(), v->GetObject()->GetUniqueId());
             continue;
@@ -159,7 +161,7 @@ bool DSlamKarto::syncGraphService(distributed_slam_karto::SyncGraph::Request& rq
         std::vector<kt_double> ranges;
         for(auto vit = it->ranges.begin(); vit != it->ranges.end(); vit++) ranges.push_back(*vit);
         // create karto range scan
-        karto::LocalizedRangeScan *kscan = new karto::LocalizedRangeScan(karto::Name(it->dev_name), ranges);
+        karto::LocalizedRangeScan *kscan = new karto::LocalizedRangeScan(dname, ranges);
         transformPose(g2g, it->odom_pose);
         kscan->SetOdometricPose(karto::Pose2(it->odom_pose.x,it->odom_pose.y,it->odom_pose.z));
         transformPose(g2g, it->corrected_pose);
@@ -167,24 +169,46 @@ bool DSlamKarto::syncGraphService(distributed_slam_karto::SyncGraph::Request& rq
         //kscan->SetUniqueId();
         //kscan->SetStateId(it->state_id);
         // add vertex
-        mapper_->GetMapperSensorManager()->AddScan(kscan, it->id + rq.graph.offset_id, it->state_id);
+        MapperSensorManager* smngr = mapper_->GetMapperSensorManager(); 
+        smngr->AddScan(kscan, it->id, it->state_id);
         mapper_->GetGraph()->AddVertex(kscan);
-        database_->Add(kscan);
+
+        // generate edges only with nearby chain
+        // first check if it is the first node
+        // link beetwen them
+        if(smngr->GetLastScan(dname) == NULL)
+        {
+            assert(smngr->GetScans(dname).size() == 1);
+             std::vector<karto::Name> deviceNames = smngr->GetSensorNames();
+            for(auto dit = deviceNames.begin(); dit!=deviceNames.end(); dit++)
+            {
+                if(*dit == dname || smngr->GetScans(*dit).empty()) continue;
+                // link them without fix pose, pose will be fixed with the global optimization
+                // TODO
+                
+            }
+        }
+        //karto::Matrix3 covariance;
+        //covariance.SetToIdentity();
+        //mapper_->GetGraph()->AddEdges(kscan, covariance);
+        //mapper_->GetMapperSensorManager()->AddRunningScan(kscan);
+        //mapper_->GetMapperSensorManager()->SetLastScan(kscan);
+        //database_->Add(kscan);
         // TODO: generate constrains if exist
     }
     for(auto it = rq.graph.edges.begin(); it != rq.graph.edges.end(); it++)
     {
         // find vertex
-        karto::Vertex<karto::LocalizedRangeScan>* v1 = getVertex(it->dev_name,it->source_id);
-        karto::Vertex<karto::LocalizedRangeScan>* v2 = getVertex(it->dev_name,it->target_id);
+        karto::Vertex<karto::LocalizedRangeScan>* v1 = getVertex(it->source_id);
+        karto::Vertex<karto::LocalizedRangeScan>* v2 = getVertex(it->target_id);
         if(!v1)
         {
-            ROS_WARN("Cannot find vertex %d of devices %s", it->source_id, it->dev_name.c_str());
+            ROS_WARN("Cannot find vertex %d", it->source_id);
             continue;
         }
         if(!v2)
         {
-            ROS_WARN("Cannot find vertex %d of devices %s", it->target_id, it->dev_name.c_str());
+            ROS_WARN("Cannot find vertex %d", it->target_id);
             continue;
         }
         // check if the edge exist
@@ -258,11 +282,17 @@ void DSlamKarto::getDevices(std::vector<distributed_slam_karto::LaserDevice> &de
         devs.push_back(dev);
     }
 }
-karto::Vertex<karto::LocalizedRangeScan>* DSlamKarto::getVertex(std::string n, int state_id)
+ karto::Vertex<karto::LocalizedRangeScan>* DSlamKarto::getVertex(int uid)
+ {
+        if(!mapper_->GetGraph()) return NULL;
+        karto::LocalizedRangeScan* scan = mapper_->GetMapperSensorManager()->GetScan(uid);
+        if(scan == NULL) return NULL;
+        return getVertex(scan->GetSensorName(), scan->GetStateId());
+ }
+karto::Vertex<karto::LocalizedRangeScan>* DSlamKarto::getVertex(karto::Name name, int state_id)
 {
     //boost::mutex::scoped_lock lock(mutex_);
     if(!mapper_->GetGraph()) return NULL;
-    karto::Name name(n);
     std::map<karto::Name,std::vector<karto::Vertex<karto::LocalizedRangeScan>*>> vertices;
     vertices = mapper_->GetGraph()->GetVertices();
 
@@ -282,7 +312,7 @@ void DSlamKarto::publishGraph()
     edges = mapper_->GetGraph()->GetEdges();
 
     distributed_slam_karto::Graph msg;
-    msg.offset_id = offset_id_;
+    //msg.offset_id = offset_id_;
     msg.frame_id = fixed_frame_;
     getDevices(msg.devices);
     // get all devices
@@ -329,6 +359,7 @@ void DSlamKarto::publishGraph()
             distributed_slam_karto::Vertex vtx;
             //vertex
             vtx.id = (*it)->GetObject()->GetUniqueId();
+            //if(offset_id_!=0) vtx.id %= offset_id_;
             vtx.state_id = (*it)->GetObject()->GetStateId();
             vtx.dev_name = mit->first.ToString();
             vtx.odom_pose.x = (*it)->GetObject()->GetOdometricPose().GetX();
@@ -353,9 +384,9 @@ void DSlamKarto::publishGraph()
     for(auto it = edges.begin(); it != edges.end(); it++)
     {
         distributed_slam_karto::Edge edge;
-        edge.source_id = (*it)->GetSource()->GetObject()->GetStateId();
-        edge.target_id = (*it)->GetTarget()->GetObject()->GetStateId();
-        edge.dev_name = (*it)->GetSource()->GetObject()->GetSensorName().ToString();
+        edge.source_id = (*it)->GetSource()->GetObject()->GetUniqueId();
+        edge.target_id = (*it)->GetTarget()->GetObject()->GetUniqueId();
+        //edge.dev_name = (*it)->GetSource()->GetObject()->GetSensorName().ToString();
         karto::LinkInfo* link= (karto::LinkInfo*)(*it)->GetLabel();
         edge.link.pose1.x = link->GetPose1().GetX();
         edge.link.pose1.y = link->GetPose1().GetY();

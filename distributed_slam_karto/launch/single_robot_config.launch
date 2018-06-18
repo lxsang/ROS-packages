@@ -16,7 +16,7 @@
             <param name="old_odom_topic" value="/$(arg namespace)/odom"/>
             <param name="odom_frame" value="/$(arg namespace)/odom"/>
             <param name="base_frame" value="/$(arg namespace)/base_footprint"/>
-            <param name="alpha1" value="0.02"/>
+            <param name="alpha1" value="0.005"/>
             <param name="alpha2" value="0.26"/>
             <param name="alpha3" value="0.05"/>
             <param name="alpha4" value="0.01"/>
@@ -80,7 +80,7 @@
             <param name="move_base_status" value="/$(arg namespace)/move_base/status" />
             <param name="frontier_topic" value="/$(arg namespace)/frontiers" />
 
-            <param name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity"/>
+            <param name="cmd_vel_topic" value="/$(arg namespace)/mobile_base/commands/velocity1"/>
         </node>
 
         <node pkg="distributed_slam_karto" type="d_slam_karto" name="d_slam_karto" output="screen" launch-prefix="gdb -ex run --args" >
