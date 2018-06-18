@@ -75,23 +75,29 @@ void graphCallback(const distributed_slam_karto::Graph::ConstPtr& msg )
         points.points.push_back(p);
     }
     
-    karto::Vertex<karto::LocalizedRangeScan>* v;
+    karto::Vertex<karto::LocalizedRangeScan>* v1, *v2;
     for(auto it = msg->edges.begin(); it != msg->edges.end(); it++)
     {
-        v = slam->getVertex(it->dev_name,it->source_id);
-        if(!v)
+        v1 = slam->getVertex(it->source_id);
+        if(!v1)
         {
-             ROS_WARN("Cannot find vertex %d of devices %s", it->source_id, it->dev_name.c_str());
+             ROS_WARN("Cannot find vertex %d", it->source_id);
              continue;
-        } 
-        p.x = v->GetObject()->GetCorrectedPose().GetX();
-        p.y = v->GetObject()->GetCorrectedPose().GetY();
+        }
+        v2 = slam->getVertex(it->target_id);
+        if(!v2)
+        {
+             ROS_WARN("Cannot find vertex %d", it->target_id);
+             continue;
+        }
+        p.x = v1->GetObject()->GetCorrectedPose().GetX();
+        p.y = v1->GetObject()->GetCorrectedPose().GetY();
         p.z = 0;
         line_list.points.push_back(p);
 
-        v = slam->getVertex(it->dev_name,it->target_id);
-        p.x = v->GetObject()->GetCorrectedPose().GetX();
-        p.y = v->GetObject()->GetCorrectedPose().GetY();
+        
+        p.x = v2->GetObject()->GetCorrectedPose().GetX();
+        p.y = v2->GetObject()->GetCorrectedPose().GetY();
         p.z = 0;
         line_list.points.push_back(p);
     }
