@@ -24,7 +24,7 @@
     <arg name="debug" value="false"/>
   </include>
 
-   <node pkg="slam_karto" type="slam_karto" name="slam_karto" output="screen">
+   <node pkg="slam_karto_g2o" type="slam_karto_g2o" name="slam_karto_g2o" output="screen">
     <!--remap from="scan" to="base_scan"/-->
     <param name="odom_frame" value="odom"/>
     <param name="map_update_interval" value="2"/>

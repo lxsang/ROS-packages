@@ -169,7 +169,7 @@ bool DSlamKarto::syncGraphService(distributed_slam_karto::SyncGraph::Request& rq
         //kscan->SetUniqueId();
         //kscan->SetStateId(it->state_id);
         // add vertex
-        MapperSensorManager* smngr = mapper_->GetMapperSensorManager(); 
+        karto::MapperSensorManager* smngr = mapper_->GetMapperSensorManager(); 
         smngr->AddScan(kscan, it->id, it->state_id);
         mapper_->GetGraph()->AddVertex(kscan);
 
