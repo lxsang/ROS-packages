@@ -1,0 +1,36 @@
+<launch>
+  <arg name="world" />
+    <arg name="map_file" value="$(find inria_demo)/launch/simap/map1.yaml" />
+  <param name="/use_sim_time" value="true"/>
+
+  <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
+
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
+  
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="30.0" />
+  </node>
+
+   <!--node pkg="tf" type="static_transform_publisher" name="imu_broadcaster" args="0.0 0 0.0 0 0 0 1 base_link gyro_link 100" /-->
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/indoor.world"/> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 -->
+    <arg name="recording" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+    <include file="$(find gazebo_sim)/launch/includes/move_base.launch.xml" />
+  <include file = "$(find inria_demo)/launch/include/amcl_demo.launch" >
+    <arg name="map_file" value="$(arg map_file)" />
+  </include>
+
+  
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+
+</launch>
