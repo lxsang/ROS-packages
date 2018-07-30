@@ -3,4 +3,4 @@ resolution: 0.050000
 origin: [-19.25, -20.3, 0.000000]
 negate: 0
 occupied_thresh: 0.4
-free_thresh: 0.1
+free_thresh: 0.1196

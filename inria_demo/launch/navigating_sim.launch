@@ -1,6 +1,6 @@
 <launch>
   <arg name="world" />
-    <arg name="map_file" value="$(find inria_demo)/launch/simap/map1.yaml" />
+    <arg name="map_file" value="$(find inria_demo)/launch/simap/map.yaml" />
   <param name="/use_sim_time" value="true"/>
 
   <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
@@ -12,7 +12,8 @@
   </node>
 
    <!--node pkg="tf" type="static_transform_publisher" name="imu_broadcaster" args="0.0 0 0.0 0 0 0 1 base_link gyro_link 100" /-->
-
+  <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
+  <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
