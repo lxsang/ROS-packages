@@ -75,7 +75,7 @@ bool find_next_frontier()
         for (int i = 0; i < global_status.status_list.size(); i++)
         {
             int stat = global_status.status_list[i].status;
-            if (stat == 1 && local_status)
+            if ((stat == 1 && local_status) || stat == 0)
                 path_clear = true;
 
             if (stat == 4 || stat == 5) // fail
