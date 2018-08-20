@@ -1,5 +1,5 @@
 <launch>
-  <arg name="map_file" value="$(find inria_demo)/launch/map.yaml" />
+  <arg name="map_file" value="$(find inria_demo)/launch/map_dia.yaml" />
 
   <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
@@ -17,7 +17,8 @@
   </node>
 
   <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
-
+  <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
+  <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
 
   <!-- joystick -->
   <node pkg="joy" type="joy_node" name="joy_node">
