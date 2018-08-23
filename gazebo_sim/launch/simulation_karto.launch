@@ -23,8 +23,12 @@
     <arg name="recording" value="false"/>
     <arg name="debug" value="false"/>
   </include>
+<<<<<<< HEAD
 <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
   <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
+=======
+
+>>>>>>> cccbd5d4b49d00e04e2cf8673a4570b154551dea
    <node pkg="slam_karto_g2o" type="slam_karto_g2o" name="slam_karto_g2o" output="screen">
     <!--remap from="scan" to="base_scan"/-->
     <param name="odom_frame" value="odom"/>
