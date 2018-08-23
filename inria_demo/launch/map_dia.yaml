@@ -1,6 +1,6 @@
-image: map_dia.png
+image: map_dia.pgm
 resolution: 0.050000
-origin: [-15.700000000000001, -11.950000000000001, 0.000000]
+origin: [-4.507582, -5.679188, 0.000000]
 negate: 0
 occupied_thresh: 0.4
 free_thresh: 0.1
