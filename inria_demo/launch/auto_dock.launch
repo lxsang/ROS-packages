@@ -1,0 +1,4 @@
+<launch>
+<include file="$(find kobuki_auto_docking)/launch/compact.launch" />
+<include file="$(find kobuki_auto_docking)/launch/activate.launch" />
+</launch>
