@@ -133,7 +133,7 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
         return true;
     }
         
-
+	// local_reached is for local goal check
     this->local_reached = false;
     tf::StampedTransform localToCmd;
     try
