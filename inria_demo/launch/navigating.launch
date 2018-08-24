@@ -25,6 +25,7 @@
     <param name="joy_node/dev" value="/dev/input/js0"/>
   </node>
   <include file="$(find turtlebot_teleop)/launch/xbox360_teleop.launch"/>
+  <include file="$(find kobuki_auto_docking)/launch/minimal.launch" />
 
 
   <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
