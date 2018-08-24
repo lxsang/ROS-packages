@@ -104,6 +104,8 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     //return false;
     
     geometry_msgs::PoseStamped pose;
+    tf::Vector3 cmd;
+    std_msgs::Bool fb;
     if (!this->my_pose(&pose))
     {
         ROS_ERROR("Cannot get pose on the goal frame: %s", this->goal_frame_id.c_str());
@@ -130,7 +132,9 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
         reached = true;
         return true;
     }
+        
 
+    this->local_reached = false;
     tf::StampedTransform localToCmd;
     try
     {
@@ -161,6 +165,30 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
         }
     }*/
 
+    
+    double robot_to_goal = this->dist(pose.pose.position, goal.pose.position);
+    double angle_diff = tf::getYaw(goal.pose.orientation) - tf::getYaw(pose.pose.orientation);
+    if (robot_to_goal < goal_tolerance_linear)
+    {
+        cmd_vel.linear.z = 0.0;
+        cmd_vel.linear.x = 0.0;
+        cmd_vel.linear.y = 0.0;
+        cmd_vel.angular.x = 0.0;
+        cmd_vel.angular.y = 0.0; // ?
+        cmd_vel.angular.z = 0.0;
+        if(fabs(angle_diff) < goal_tolerance_angular)
+        {
+            this->local_reached = true;
+        }
+        else
+        {
+            printf("NEED TO ROTATE IS: %f -> %f\n", angle_diff, goal_tolerance_angular);
+            cmd_vel.angular.z = fabs(angle_diff) > max_angular_v ? (angle_diff/fabs(angle_diff))*max_angular_v: angle_diff;
+        }
+        fb.data = true;
+        pf_status_pub.publish(fb);
+        return true;
+    }
     // now calculate the potential field toward the local goal
     double resolution = this->local_map.info.resolution;
 
@@ -172,9 +200,6 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     frep.y = 0.0;
 
     // attractive potential
-    double robot_to_goal = this->dist(pose.pose.position, goal.pose.position);
-
-    if (robot_to_goal < goal_tolerance) this->reached = true;
 
     if (robot_to_goal < safe_goal_dist)
     {
@@ -217,7 +242,6 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     if(verbose)
         ROS_INFO("attractive: %f, %f Respulsive: %f %f", fatt.x, fatt.y, frep.x, frep.y);
     // now calculate the velocity
-    tf::Vector3 cmd;
     cmd.setX(fatt.x + frep.x);
     cmd.setY(fatt.y + frep.y);
 
@@ -270,7 +294,7 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     cmd_vel.angular.x = 0.0;
     cmd_vel.angular.y = 0.0; // ?
     cmd_vel.angular.z = yaw;
-    std_msgs::Bool fb;
+    
     if(is_collision )
     {
         ROS_WARN("There will be a collision if i take this direction. I stop");
@@ -354,6 +378,11 @@ bool PFLocalPlanner::my_pose(geometry_msgs::PoseStamped *pose)
 }
 bool PFLocalPlanner::select_goal(geometry_msgs::PoseStamped *_goal)
 {
+    if (! this->local_reached)
+    {
+        *_goal = this->current_local_goal;
+        return true;
+    }
     if (this->global_plan.size() == 0)
     {
         //reached = true;
@@ -380,11 +409,13 @@ bool PFLocalPlanner::select_goal(geometry_msgs::PoseStamped *_goal)
     double d, dx, dy;
     bool has_goal = false;
     tf::Vector3 candidate;
+    tf::Quaternion orientation;
     int i=0;
     for (it = this->global_plan.begin(); it != this->global_plan.end(); it++)
     {
         candidate.setX(it->pose.position.x);
         candidate.setY(it->pose.position.y);
+        orientation = tf::Quaternion(it->pose.orientation.x,it->pose.orientation.y,it->pose.orientation.z,it->pose.orientation.w);
         candidate = goalToLocal * candidate;
         geometry_msgs::Point tmp;
         tmp.x = candidate.x();
@@ -396,16 +427,20 @@ bool PFLocalPlanner::select_goal(geometry_msgs::PoseStamped *_goal)
         i++;
     }
     //if(it != global_plan.end())
-    //    it->pose.position.z = 1.0;
+    //    it->pose.position.z = 1.0
+    orientation = goalToLocal*orientation;
+    _goal->pose.position.x = candidate.x();
+    _goal->pose.position.y = candidate.y();
+    _goal->pose.orientation.x = orientation.x();
+    _goal->pose.orientation.y = orientation.y();
+    _goal->pose.orientation.z = orientation.z();
+    _goal->pose.orientation.w = orientation.w();
+    _goal->header.frame_id = this->cmd_frame_id;
     global_plan = vector<geometry_msgs::PoseStamped>(
         make_move_iterator(global_plan.begin() + i),
         make_move_iterator(global_plan.end()));
-   
-    _goal->pose.position.x = candidate.x();
-    _goal->pose.position.y = candidate.y();
-
-    _goal->header.frame_id = this->cmd_frame_id;
     local_goal_pub.publish(*_goal);
+    this->current_local_goal = *_goal;
     return true;
 }
 
@@ -429,6 +464,7 @@ bool PFLocalPlanner::setPlan(const std::vector<geometry_msgs::PoseStamped> &plan
     this->global_plan.clear();
     this->global_plan = plan;
     this->reached = false;
+    this->local_reached = true;
     return true;
 }
 void PFLocalPlanner::initialize(std::string name, tf::TransformListener *tf, costmap_2d::Costmap2DROS *costmap_ros)
@@ -454,7 +490,8 @@ void PFLocalPlanner::initialize(std::string name, tf::TransformListener *tf, cos
         private_nh.param<bool>("verbose", this->verbose, true);
         private_nh.param<int>("local_map_th", local_map_th, 90);
         private_nh.param<int>("recovery_attemps", recovery_attemps, 10);
-        private_nh.param<double>("goal_tolerance", goal_tolerance, 0.2);
+        private_nh.param<double>("goal_tolerance_linear", goal_tolerance_linear, 0.2);
+        private_nh.param<double>("goal_tolerance_angular", goal_tolerance_angular, 0.2);
         private_nh.param<double>("max_linear_v", max_linear_v, 0.3);
         private_nh.param<double>("max_angular_v", max_angular_v, 1.3);
         private_nh.param<double>("recovery_amplification", recovery_amplification, 2.0);

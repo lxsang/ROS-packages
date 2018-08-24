@@ -91,10 +91,10 @@ class PFLocalPlanner : public nav_core::BaseLocalPlanner
     int min_obstacle_size_px, local_map_th, recovery_attemps, fw, fh;
     std::string goal_frame_id;
     std::string cmd_frame_id, scan_topic;
-    double attractive_gain, repulsive_gain, safe_goal_dist, safe_obs_dist,max_local_goal_dist,max_linear_v, goal_tolerance, max_angular_v;
+    double attractive_gain, repulsive_gain, safe_goal_dist, safe_obs_dist,max_local_goal_dist,max_linear_v, goal_tolerance_linear, goal_tolerance_angular, max_angular_v;
     std::vector<geometry_msgs::PoseStamped> global_plan;
     bool initialized_,verbose;
-    bool reached;
+    bool reached, local_reached;
     tf::TransformListener *tf;
     ros::NodeHandle private_nh;
     ros::Publisher  local_goal_pub, obstacles_pub, futur_pose_pub, local_map_pub, pf_status_pub;
@@ -102,6 +102,7 @@ class PFLocalPlanner : public nav_core::BaseLocalPlanner
     actionlib_msgs::GoalStatusArray global_status;
     local_map::MapBuilder *map_builder;
     ros::Subscriber cmap_sub;
+    geometry_msgs::PoseStamped current_local_goal;
 };
 };
 #endif
