@@ -120,6 +120,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+catkin_install_python(PROGRAMS
+  scripts/autodock_client.py
+  DESTINATION  ../devel/lib/inria_demo/
+)
+
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/inria_demo.cpp

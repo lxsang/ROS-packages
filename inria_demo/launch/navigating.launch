@@ -19,7 +19,7 @@
   <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0.110 0 0.02478 0 0 0 1 base_link laser 50" />
   <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
   <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
-
+  <node name="dock_client" pkg="inria_demo" type="autodock_client.py" />
   <!-- joystick -->
   <node pkg="joy" type="joy_node" name="joy_node">
     <param name="joy_node/dev" value="/dev/input/js0"/>
