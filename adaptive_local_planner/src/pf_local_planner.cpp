@@ -130,7 +130,9 @@ bool PFLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
     {
         ROS_WARN("No local goal is selected");
         reached = true;
+        this->local_reached = true;
         return true;
+        
     }
         
 	// local_reached is for local goal check
