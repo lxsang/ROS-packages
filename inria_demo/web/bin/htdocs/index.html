@@ -7,11 +7,24 @@
 <script type="text/javascript" src="scripts/roslib.min.js"></script>
 <script type="text/javascript" src="scripts/jquery.min.js"></script>
 <script type="text/javascript" src="scripts/hamster.js"></script>
+<script type="text/javascript" src="scripts/mobileconsole.js"></script>
 <link rel="stylesheet" href="assets/style.css">
 <script src="scripts/main.js"></script>
 </head>
 
 <body>
+    <ul id = "toolbar">
+        <li>
+                <a href="#" id = "fullscreenbt">Toggle fullscreen</a>
+        </li>
+        <li>
+                <a href="#" id = "zoomin">Zoom in</a>
+        </li>
+        <li>
+                <a href="#" id = "zoomout">Zoom out</a>
+        </li>
+    </ul>
+    
     <div id = "workspace">
         <canvas id = "canvas"></canvas>
     </div>

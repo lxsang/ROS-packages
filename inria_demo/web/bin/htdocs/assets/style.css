@@ -12,3 +12,18 @@
     left: 0;
     right: 0;
 }
+ul#toolbar{
+    display: block;
+    position: absolute;
+    z-index: 1000;
+    margin: 0;
+    padding:0;
+    padding-left: 10px;
+    list-style: none;
+    top:10px;
+    left: 10px;
+}
+ul#toolbar li{
+    float:left;
+    margin-right: 10px;
+}

@@ -11,12 +11,12 @@ VIZ = {
         // first, create a new ImageData to contain our pixels
         var imgData = ctx.createImageData(msg.info.width, msg.info.height); // width x height
         var data = imgData.data;
-        console.log(imgData);
+        //console.log(imgData);
         // copy img byte-per-byte into our ImageData
         for (var i = 0; i < msg.info.width; i++) {
             for (var j = msg.info.height - 1; j >= 0; j--) {
-                var cell = j*msg.info.width + i;
-                var index = (msg.info.height - j)*msg.info.width + i;
+                var cell = j * msg.info.width + i;
+                var index = (msg.info.height - j) * msg.info.width + i;
                 switch (msg.data[cell]) {
                     case 0:
                         data[index * 4] = 255;
@@ -41,12 +41,11 @@ VIZ = {
         ctx.putImageData(imgData, 0, 0);
         VIZ.update();
     },
-    update:function()
-    {
+    update: function () {
         console.log("update");
         var canvas = $("#canvas")[0];
-        var width = VIZ.buffer.width*VIZ.scale;
-        var height = VIZ.buffer.height*VIZ.scale;
+        var width = VIZ.buffer.width * VIZ.scale;
+        var height = VIZ.buffer.height * VIZ.scale;
         canvas.width = width;
         canvas.height = height;
         var ctx = canvas.getContext('2d');
@@ -59,15 +58,63 @@ VIZ = {
     }
 }
 var canvas_scale = 1;
+
+var enterFullscreen = function () {
+    var el = $("body")[0]
+    if (el.requestFullscreen)
+        return el.requestFullscreen()
+    else if (el.mozRequestFullScreen)
+        return el.mozRequestFullScreen()
+    else if (el.webkitRequestFullscreen)
+        return el.webkitRequestFullscreen()
+    else if (el.msRequestFullscreen)
+        return el.msRequestFullscreen()
+}
+window.mobilecheck = function () {
+    if (navigator.userAgent.match(/Android/i)
+        || navigator.userAgent.match(/webOS/i)
+        || navigator.userAgent.match(/iPhone/i)
+        || navigator.userAgent.match(/iPad/i)
+        || navigator.userAgent.match(/iPod/i)
+        || navigator.userAgent.match(/BlackBerry/i)
+        || navigator.userAgent.match(/Windows Phone/i)
+    ) {
+        return true;
+    }
+    else {
+        return false;
+    }
+};
+var initConsole = function () {
+
+    if (!mobileConsole.status.initialized) {
+        mobileConsole.init();
+    }
+}
 $(window).on('load', function () {
-
-    var hamster = Hamster($("#canvas")[0]);
-
-    hamster.wheel(function(event, delta, deltaX, deltaY){
-        VIZ.scale += 0.2*delta;
+    if (mobilecheck())
+        initConsole()
+    var zoom = function(delta)
+    {
+        VIZ.scale += 0.2 * delta;
         VIZ.update();
+    }
+    $("#fullscreenbt").click(function (e) {
+        enterFullscreen()
+    })
+    $("#zoomin").click(function (e) {
+        zoom(1)
+    })
+    $("#zoomout").click(function (e) {
+        zoom(-1)
+    })
+    // mouse event
+    var hamster = Hamster($("#canvas")[0]);
+    hamster.wheel(function (event, delta, deltaX, deltaY) {
+        zoom(delta)
     });
-    var server = 'ws://localhost:9090';
+
+    var server = 'ws://10.1.160.79:9090';
     //subscriber to topic map
     var ros = new ROSLIB.Ros({
         url: server
@@ -78,7 +125,8 @@ $(window).on('load', function () {
     });
 
     ros.on('error', function (error) {
-        console.log('Error connecting to websocket server: ', error);
+        console.log('Error connecting to websocket server: ' + server);
+        console.log(JSON.stringify(error))
     });
 
     ros.on('close', function () {
