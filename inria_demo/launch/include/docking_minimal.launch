@@ -1,5 +1,6 @@
 <!--
   Basic auto-docking configuration for working with the default kobuki launcher (minimal.launch). 
+ ROS_MASTER_URI=http://10.1.160.200:11311 roslaunch rosbridge_server rosbridge_websocket.launch
  -->
 <launch>
   <node pkg="nodelet" type="nodelet" name="dock_drive" args="load kobuki_auto_docking/AutoDockingNodelet mobile_base_nodelet_manager">

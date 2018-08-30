@@ -1,0 +1,4 @@
+<launch>
+<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" />
+<node name="webserver" pkg="inria_demo" type="antd"/>
+</launch>

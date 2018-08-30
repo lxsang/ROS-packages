@@ -1,0 +1,59 @@
+html, body
+{
+    width: 100%;
+    height: 100%;
+    background-color: #d2d5db;
+}
+
+#workspace{
+    width: 100%;
+    height: 100%;
+}
+#canvas{
+    border: none;
+    display: block;
+    margin: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+ul#toolbar{
+    display: block;
+    position: absolute;
+    z-index: 1000;
+    margin: 0;
+    padding:0;
+    padding-left: 10px;
+    list-style: none;
+    top:10px;
+    left: 10px;
+}
+ul#toolbar li{
+    float:left;
+    margin-right: 10px;
+    display: block;
+    width: 40px;
+    height: 40px;
+    border: 2px solid #595959;
+    background-color: #dedede;
+    background-position: center;
+}
+li#fullscreenbt{
+    background-image: url(images/fullscreen.png);
+    background-repeat: no-repeat;
+
+}
+
+li#zoomin{
+    background-image: url(images/zoom-in.png);
+    background-repeat: no-repeat;
+
+}
+
+li#zoomout{
+    background-image: url(images/zoom-out.png);
+    background-repeat: no-repeat;
+
+}

@@ -1,12 +1,280 @@
 
 VIZ = {
-    buffer: {},
+    uri: 'ws://10.1.160.205:9090',
+    handles: {},
+    canvas: null,
+    buffer: null,
+    resolution: 0.05,
+    robotradius: 0.25,
+    origin: { x: 0, y: 0 },
+    msgcount: 10,
+    changed: false,
+    rate: 500, // ms
+    lock: false,
+    msgs: {},
+    events: {},
     scale: 1.0,
+    draw: function () {
+        VIZ.unbindAll()
+        if (VIZ.msgs.map)
+            VIZ.drawMap(VIZ.msgs.map)
+        if (VIZ.msgs.path)
+            VIZ.drawPath(VIZ.msgs.path)
+        if (VIZ.msgs.pose)
+            VIZ.drawRobot(VIZ.msgs.pose)
+        if (VIZ.msgs.goals)
+            VIZ.drawGoals(VIZ.msgs.goals)
+        VIZ.changed = true
+    },
+    bind: function (name, obj) {
+        if (!VIZ.events[name]) {
+
+            VIZ.events[name] = [];
+            $(VIZ.canvas).on(name, function (e) {
+                var offset = $(VIZ.canvas).offset();
+                var mouse = {
+                    x: (e.clientX - offset.left),
+                    y: (e.clientY - offset.top)
+                };
+                var hit = function (p, box) {
+                    var left = box.x * VIZ.scale;
+                    var top = box.y * VIZ.scale;
+                    var right = (box.x + box.w) * VIZ.scale;
+                    var bottom = (box.y + box.h) * VIZ.scale;
+                    return (p.x > left && p.y > top && p.x < right && p.y < bottom);
+                }
+                //console.log(mouse);
+                for (i = 0; i < VIZ.events[name].length; i++) {
+                    if (hit(mouse, VIZ.events[name][i].box)) {
+                        VIZ.events[name][i].handle(e)
+                    }
+                }
+
+            })
+        }
+        VIZ.events[name].push(obj)
+    },
+    unbindAll: function () {
+        for (k in VIZ.events)
+            $(VIZ.canvas).unbind(k)
+        VIZ.events = {}
+    },
+    ready: function () {
+        //subscriber to topic map
+        return new Promise(function (resolve, reject) {
+            var ros = new ROSLIB.Ros({
+                url: VIZ.uri
+            });
+
+            ros.on('connection', function () {
+                alertify.success('Connected to websocket server.');
+                resolve(ros);
+            });
+
+            ros.on('error', function (error) {
+                reject('Error connecting to websocket server: ' + VIZ.uri);
+            });
+
+            ros.on('close', function () {
+                alertify.warning('Connection to websocket server closed.');
+            });
+
+        });
+    },
+    init: function () {
+        return new Promise(function (resolve, reject) {
+            VIZ.ready()
+                .then(function (ros) {
+                    VIZ.handles.maplistener = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/map',
+                        messageType: 'nav_msgs/OccupancyGrid',
+                        throttle_rate: VIZ.rate
+                    });
+
+                    VIZ.handles.maplistener.subscribe(function (message) {
+                        VIZ.msgs.map = message
+                        VIZ.draw()
+                        //listener.unsubscribe();
+                        //ros.close()
+                    });
+
+                    VIZ.handles.pathlistener = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/move_base/GlobalPlanner/plan',
+                        messageType: 'nav_msgs/Path',
+                        throttle_rate: VIZ.rate
+                    });
+                    VIZ.handles.pathlistener.subscribe(function (msg) {
+                        VIZ.msgs.path = msg
+                        VIZ.draw()
+                    });
+
+                    VIZ.handles.poselistener = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/robot_pose',
+                        messageType: 'geometry_msgs/Pose',
+                        throttle_rate: VIZ.rate
+                    });
+
+                    VIZ.handles.poselistener.subscribe(function (msg) {
+                        //console.log(msg)
+                        VIZ.msgs.pose = msg
+                        VIZ.draw()
+                    });
+
+                    VIZ.handles.goallistener = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/robotcmd/goals',
+                        messageType: 'geometry_msgs/PoseArray',
+                        throttle_rate: VIZ.rate
+                    });
+
+                    VIZ.handles.goallistener.subscribe(function (msg) {
+                        //console.log(msg)
+                        VIZ.msgs.goals = msg
+                        //console.log(msg)
+                        VIZ.draw()
+                    });
+
+                    VIZ.handles.goalstatus = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/move_base/status',
+                        messageType: 'actionlib_msgs/GoalStatusArray',
+                        throttle_rate: VIZ.rate
+                    });
+                    VIZ.handles.next_goal = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/robotcmd/next_goal',
+                        messageType: 'std_msgs/Bool'
+                    });
+                    VIZ.handles.goalstatus.subscribe(function (msg) {
+                        //inform the user to go to next
+                        if (VIZ.lock) return;
+                        if (!VIZ.msgs.goals || VIZ.msgs.goals.poses.length == 0) return;
+                        if(VIZ.msgcount > 0) { VIZ.msgcount--; return;  }
+                        var busy = false;
+                        for (i = 0; i < msg.status_list.length; i++) {
+                            if (msg.status_list[i].status != 3)
+                                busy = true;
+                        }
+                        if (busy) return;
+                        VIZ.lock = true;
+                        alertify.alert().setting('modal', false);
+                        alertify.alert('Closable: false').set('closable', false); 
+                        alertify.alert('Go next', 'Navigate to the next goal', function(){ 
+                            var msg = new ROSLIB.Message({data: true});
+                            VIZ.handles.next_goal.publish(msg);
+                            VIZ.lock = false;
+                            VIZ.msgcount = 10;
+                            alertify.success('Going to the next goal');
+                        });
+
+                    });
+
+                    resolve()
+                })
+                .catch(function (e) {
+                    reject(e)
+                })
+        });
+    },
+    main: function () {
+        VIZ.init().then(VIZ.update).catch(function (e) {
+            alertify.error(e)
+            alertify.prompt("Please enter the correct Uri", VIZ.uri,
+                function (evt, value) {
+                    VIZ.uri = value;
+                    VIZ.main()
+                },
+                function () {
+                    alertify.error('Abort the connection');
+                })
+                ;
+        })
+    },
+    robotPose2Canvas(p) {
+        var center_x = VIZ.origin.x + p.x / VIZ.resolution;
+        var center_y = VIZ.origin.y - p.y / VIZ.resolution;
+        return { x: center_x, y: center_y }
+    },
+    drawGoals: function (msg) {
+        //console.log("draw goal");
+        var canvas = VIZ.buffer;
+        var context = canvas.getContext('2d');
+        var radius = 7;
+
+        for (i = 0; i < msg.poses.length; i++) {
+            var pose = VIZ.robotPose2Canvas(msg.poses[i].position);
+            context.moveTo(pose.x, pose.y);
+            context.beginPath();
+            //console.log(radius);
+            context.arc(pose.x, pose.y, radius, 0, 2 * Math.PI, false);
+            context.fillStyle = '#ea5e07';
+            context.fill();
+            context.lineWidth = 1;
+            context.strokeStyle = '#262a30';
+            context.stroke();
+            context.font = "bold 10pt arial";
+            context.strokeStyle = 'white';
+            context.fillStyle = 'white';
+            context.textAlign = "center";
+            context.fillText(i + 1, pose.x, pose.y + 3.5);
+
+            // binding event
+            VIZ.bind("click", {
+                box: {
+                    x: pose.x - radius,
+                    y: pose.y - radius,
+                    w: radius * 2,
+                    h: radius * 2
+                },
+                handle: function (e) {
+                    alertify.message("User clicked on goal " + (i + 1))
+                }
+            })
+        }
+    },
+    drawPath: function (msg) {
+        if (msg.poses.length == 0) return;
+        var canvas = VIZ.buffer;
+        var ctx = canvas.getContext('2d');
+        var i = 0;
+        ctx.beginPath();
+        while (i < msg.poses.length - 1) {
+            var el = msg.poses[i];
+            var pose = VIZ.robotPose2Canvas(el.pose.position);
+            ctx.moveTo(pose.x, pose.y);
+            el = msg.poses[i + 1];
+            pose = VIZ.robotPose2Canvas(el.pose.position);
+            ctx.lineTo(pose.x, pose.y);
+            i++;
+        }
+        ctx.strokeStyle = '#F48042';
+        ctx.stroke();
+    },
+    drawRobot: function (msg) {
+        var canvas = VIZ.buffer;
+        var context = canvas.getContext('2d');
+        var pose = VIZ.robotPose2Canvas(msg.position);
+
+        context.beginPath();
+        var radius = VIZ.robotradius / VIZ.resolution / 2;
+        //console.log(radius);
+        context.arc(pose.x, pose.y, radius, 0, 2 * Math.PI, false);
+        context.fillStyle = 'green';
+        context.fill();
+        context.lineWidth = 1;
+        context.strokeStyle = '#003300';
+        context.stroke();
+    },
     drawMap: function (msg) {
-        VIZ.buffer = $("<canvas>")[0];
         var canvas = VIZ.buffer;
         canvas.width = msg.info.width;
         canvas.height = msg.info.height;
+        VIZ.resolution = msg.info.resolution;
+        VIZ.origin.x = -msg.info.origin.position.x / msg.info.resolution;
+        VIZ.origin.y = canvas.height + msg.info.origin.position.y / msg.info.resolution;
         var ctx = canvas.getContext('2d');
         // first, create a new ImageData to contain our pixels
         var imgData = ctx.createImageData(msg.info.width, msg.info.height); // width x height
@@ -29,9 +297,9 @@ VIZ = {
                         data[index * 4 + 2] = 0;
                         break;
                     default:
-                        data[index * 4] = 173;
-                        data[index * 4 + 1] = 175;
-                        data[index * 4 + 2] = 178;
+                        data[index * 4] = 210;
+                        data[index * 4 + 1] = 213;
+                        data[index * 4 + 2] = 219;
                 }
                 data[cell * 4 + 3] = 255;
             }
@@ -42,8 +310,9 @@ VIZ = {
         VIZ.update();
     },
     update: function () {
-        console.log("update");
-        var canvas = $("#canvas")[0];
+        if (!VIZ.buffer || !VIZ.changed) return window.requestAnimationFrame(VIZ.update);
+        //console.log("update");
+        var canvas = VIZ.canvas;
         var width = VIZ.buffer.width * VIZ.scale;
         var height = VIZ.buffer.height * VIZ.scale;
         canvas.width = width;
@@ -55,12 +324,31 @@ VIZ = {
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(VIZ.buffer, 0, 0);
         ctx.restore();
+        VIZ.changed = false;
+        window.requestAnimationFrame(VIZ.update);
+    },
+    zoom: function (delta) {
+        VIZ.scale += 0.2 * delta;
     }
 }
-var canvas_scale = 1;
+
+var isFullscreen = false;
 
 var enterFullscreen = function () {
     var el = $("body")[0]
+    if( isFullscreen )
+    {
+        isFullscreen = false
+        if(document.exitFullscreen)
+            return document.exitFullscreen()
+        if(document.mozCancelFullScreen)
+            return document.mozCancelFullScreen() 
+        if(document.webkitExitFullscreen)   
+            return document.webkitExitFullscreen()
+        if(document.cancelFullScreen)
+            return document.cancelFullScreen()
+    }
+    isFullscreen = true;
     if (el.requestFullscreen)
         return el.requestFullscreen()
     else if (el.mozRequestFullScreen)
@@ -85,64 +373,33 @@ window.mobilecheck = function () {
         return false;
     }
 };
-var initConsole = function () {
+/*var initConsole = function () {
 
     if (!mobileConsole.status.initialized) {
         mobileConsole.init();
     }
-}
+}*/
 $(window).on('load', function () {
-    if (mobilecheck())
-        initConsole()
-    var zoom = function(delta)
-    {
-        VIZ.scale += 0.2 * delta;
-        VIZ.update();
-    }
+    //if (mobilecheck())
+    //    initConsole()
+
     $("#fullscreenbt").click(function (e) {
         enterFullscreen()
     })
     $("#zoomin").click(function (e) {
-        zoom(1)
+        VIZ.zoom(1)
     })
     $("#zoomout").click(function (e) {
-        zoom(-1)
+        VIZ.zoom(-1)
     })
     // mouse event
     var hamster = Hamster($("#canvas")[0]);
     hamster.wheel(function (event, delta, deltaX, deltaY) {
-        zoom(delta)
+        VIZ.zoom(delta)
     });
 
-    var server = 'ws://10.1.160.79:9090';
-    //subscriber to topic map
-    var ros = new ROSLIB.Ros({
-        url: server
-    });
-
-    ros.on('connection', function () {
-        console.log('Connected to websocket server.');
-    });
-
-    ros.on('error', function (error) {
-        console.log('Error connecting to websocket server: ' + server);
-        console.log(JSON.stringify(error))
-    });
-
-    ros.on('close', function () {
-        console.log('Connection to websocket server closed.');
-    });
-
-    var listener = new ROSLIB.Topic({
-        ros: ros,
-        name: '/map',
-        messageType: 'nav_msgs/OccupancyGrid'
-    });
-
-    listener.subscribe(function (message) {
-        VIZ.drawMap(message);
-        //listener.unsubscribe();
-        //ros.close()
-    });
-
+    VIZ.buffer = $("<canvas>")[0];
+    VIZ.canvas = $("#canvas")[0];
+    alertify.defaults.glossary.title = "VIZ";
+    VIZ.main()
 });
