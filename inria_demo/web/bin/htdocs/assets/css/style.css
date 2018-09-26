@@ -3,6 +3,7 @@ html, body
     width: 100%;
     height: 100%;
     background-color: #d2d5db;
+    overflow: hidden;
 }
 
 #workspace{
@@ -56,4 +57,44 @@ li#zoomout{
     background-image: url(images/zoom-out.png);
     background-repeat: no-repeat;
 
+}
+li#upload{
+    background-image: url(images/upload.png);
+    background-repeat: no-repeat;
+}
+li#next_goal{
+    background-image: url(images/next.png);
+    background-repeat: no-repeat;
+}
+
+li#home{
+    background-image: url(images/home.png);
+    background-repeat: no-repeat;
+}
+/* Tooltip container */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: black;
+    color: #fff;
+    text-align: left;
+    padding: 5px;
+    border-radius: 6px;
+    top: 45px;
+    left:0; 
+    /* Position the tooltip text - see examples below! */
+    position: absolute;
+    z-index: 1;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+    visibility: visible;
 }

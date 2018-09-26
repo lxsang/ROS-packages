@@ -1,4 +1,5 @@
 <launch>
 <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" />
 <node name="webserver" pkg="inria_demo" type="antd"/>
+<!--node name="annotation_node" pkg="inria_demo" type="annotation_deamon.py" /-->
 </launch>

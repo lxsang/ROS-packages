@@ -6,7 +6,6 @@
 <!--script type="text/javascript" src="http://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script-->
 <script type="text/javascript" src="scripts/roslib.min.js"></script>
 <script type="text/javascript" src="scripts/jquery.min.js"></script>
-<script type="text/javascript" src="scripts/hamster.js"></script>
 <!--script type="text/javascript" src="scripts/mobileconsole.js"></script-->
 <script src="scripts/alertify.min.js"></script>
 <!-- include the style -->
@@ -19,11 +18,23 @@
 
 <body>
     <ul id = "toolbar">
-        <li id = "fullscreenbt">
+        <li id="upload" class="tooltip">
+            <span class="tooltiptext">Upload annotation file</span>
         </li>
-        <li  id = "zoomin">
+        <li id = "fullscreenbt" class="tooltip">
+            <span class="tooltiptext">Enter fullscreen</span>
         </li>
-        <li id = "zoomout">
+        <li  id = "zoomin" class="tooltip">
+                <span class="tooltiptext">Zoom in</span>
+        </li>
+        <li id = "zoomout" class ="tooltip">
+                <span class="tooltiptext">Zoom out</span>
+        </li>
+        <li id = "next_goal" class="tooltip" >
+                <span class="tooltiptext">Go to next goal</span>
+        </li>
+        <li id = "home" class = "tooltip">
+                <span class="tooltiptext">Go to home</span>
         </li>
     </ul>
     
