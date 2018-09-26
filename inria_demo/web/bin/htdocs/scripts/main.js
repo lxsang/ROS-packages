@@ -183,7 +183,7 @@ var VIZ = {
                 if (!VIZ.dock) return; 
                 VIZ.lock = true;
                 alertify.message("Starting docking protocol...");
-                VIZ.handles.docking.publish(true);
+                VIZ.handles.docking.publish(new ROSLIB.Message({data:true}));
                 VIA.lock = false;
 
             });
