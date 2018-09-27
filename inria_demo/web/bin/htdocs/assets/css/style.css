@@ -71,6 +71,11 @@ li#home{
     background-image: url(images/home.png);
     background-repeat: no-repeat;
 }
+
+li#loop{
+    background-image: url(images/loop.png);
+    background-repeat: no-repeat;
+}
 /* Tooltip container */
 .tooltip {
     position: relative;

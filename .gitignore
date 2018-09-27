@@ -2,3 +2,5 @@ httpd
 libantd.dylib
 load.dylib
 inria_demo/launch/bags/dia.bag
+config.ini
+annotation.json

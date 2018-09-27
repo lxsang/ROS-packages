@@ -5,6 +5,7 @@ var VIZ = {
     handles: {},
     canvas: null,
     buffer: null,
+    loop: false,
     currentGoal: -1,
     home: -1,
     resolution: 0.05,
@@ -180,11 +181,18 @@ var VIZ = {
                         busy = true;
                 }
                 if (busy) return;
-                if (!VIZ.dock) return; 
-                VIZ.lock = true;
-                alertify.message("Starting docking protocol...");
-                VIZ.handles.docking.publish(new ROSLIB.Message({data:true}));
-                VIA.lock = false;
+                if (VIZ.dock)
+                {
+                    VIZ.lock = true;
+                    alertify.message("Starting docking protocol...");
+                    VIZ.handles.docking.publish(new ROSLIB.Message({data:true}));
+                    VIA.lock = false;
+                }
+                if(VIZ.loop)
+                {
+                    alertify.message("Going to next location...");
+                    VIZ.goNext();
+                }
 
             });
 
@@ -273,6 +281,8 @@ var VIZ = {
             return function () {
                 alertify.confirm().setting("modal", false);
                 alertify.confirm("Info", "Location: '" + msg[i].text + "'. Go to this place?", function () {
+                    VIZ.loop = false;
+                    $("#loop").css("background-color","#dedede");
                     VIZ.goToGoal(i);
                     alertify.success("Going to " + msg[i].text);
                 },
@@ -551,10 +561,27 @@ var boot = function () {
         VIZ.zoom(-1);
     });
     $("#next_goal").click(function (e) {
+        VIZ.loop = false;
+        $("#loop").css("background-color","#dedede");
         VIZ.goNext();
     });
     $("#home").click(function (e) {
+        VIZ.loop = false;
+        $("#loop").css("background-color","#dedede");
         VIZ.goHome();
+    });
+    $("#loop").click(function (e) {
+        if(VIZ.loop)
+        {
+            // disable it
+            $("#loop").css("background-color","#dedede");
+        }
+        else
+        {
+            $("#loop").css("background-color","#d86262");
+            VIZ.goNext();
+        }
+        VIZ.loop = !VIZ.loop;
     });
     $("#upload").click(function (e) {
         var o = ($('<input>')).attr('type', 'file').css("display", "none");
