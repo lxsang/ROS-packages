@@ -375,7 +375,7 @@ var VIZ = {
         for (var i = 0; i < msg.info.width; i++) {
             for (var j = msg.info.height - 1; j >= 0; j--) {
                 var cell = j * msg.info.width + i;
-                var index = (msg.info.height - j) * msg.info.width + i;
+                var index = (msg.info.height - j - 1) * msg.info.width + i;
                 switch (msg.data[cell]) {
                     case 0:
                         data[index * 4] = 255;
