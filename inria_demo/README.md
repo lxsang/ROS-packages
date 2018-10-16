@@ -85,7 +85,7 @@ Last, we need to add all the machines that we want to communicate with from the 
 <a name="desk"></a>
  ## Setting up the desktop computer
  
- The desktop computer is used for remote access to the Raspberry PI, for manual mapping process and for running the remote control software written in PhaROS. Therefore, this computer need to be ROS compliant. To install ROS kinetic on the machine, please refer to [ this tutorial ](http://wiki.ros.org/kinetic/Installation/Ubuntu), we recommend the ```ros-kinetic-desktop-full``` installation. Once the ROS install is done, some extra packages are required to be installed using the following shell script
+ The desktop computer is used for remote access to the Raspberry PI, for manual mapping process and for running the remote control software written in PhaROS. Therefore, this computer need to be ROS compliant. To install ROS kinetic on the machine, please refer to [ this tutorial ](http://wiki.ros.org/kinetic/Installation/Ubuntu), we recommend the ```ros-kinetic-desktop-full``` installation. Once the ROS installation is done, some extra packages are required to be installed using the following shell script
  
  ```sh
  #! /bin/bash
