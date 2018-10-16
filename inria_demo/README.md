@@ -129,7 +129,7 @@ git clone https://github.com/lxsang/ROS-packages
 # rename it to src
 rm -r src
 mv ROS-packages src
-# ignore some package for now
+# ignore some packages for now
 touch src/distributed_slam_karto/CATKIN_IGNORE
 touch src/pharos_probabilistic_merging/CATKIN_IGNORE
 touch src/dslam/CATKIN_IGNORE
@@ -137,7 +137,7 @@ touch src/multi_master_bridge/CATKIN_IGNORE
 touch src/multi_merge/CATKIN_IGNORE
 touch src/frontier_allocation
 # generate dependent messages
-tf_lookup_generate_messages
+catkin_make tf_lookup_generate_messages
 # now build all of our packages
 catkin_make
 #source our workspace
