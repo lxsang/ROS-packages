@@ -1,7 +1,7 @@
 <launch>
   <arg name="map_file" value="$(find inria_demo)/launch/map.yaml" />
 
-   <include file="$(find inria_demo)/launch/minimal.launch" />
+   <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
   
   <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
   <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
