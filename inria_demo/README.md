@@ -146,7 +146,7 @@ source ~/.bashrc
  ```
  
  Note: you can put theses commands in a single shell script file, ```install.sh``` for example then simply run:
- ```
+ ```sh
  chmod u+x install.sh
  ./install.sh
  # now this will take some time, take a coffee
