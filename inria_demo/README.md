@@ -1,5 +1,5 @@
-# Demo use guild
-This document aims at providing a detail setup guild for the demonstration.
+# Demo use guide
+This document provides a detail setup guide for the demonstration.
 
 Table of content:
 1.  [Hardware requirement](#hw)
@@ -31,7 +31,7 @@ Table of content:
  ```
  The default username and password is: **ubuntu**
  
-Once booting up, one should setup the network connection for the Raspberry PI. First, the PI need to automatically connect to a wifi network by modifying the ```/etc/wpa_supplicant/wpa_supplicant.conf``` file to something like this:
+Once booting up, one should setup the network connection for the Raspberry PI. First, the PI need to automatically connect to a wifi network, modify the ```/etc/wpa_supplicant/wpa_supplicant.conf``` file to something like this:
 ```sh
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
@@ -72,7 +72,7 @@ wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
 Note: change the IP addresses to your network configuration.
 
-Last, we need to add all the machines we want to connect to the PI in ```/etc/hosts```, for example
+Last, we need to add all the machines that we want to communicate with from the PI using ROS to ```/etc/hosts```, for example
 ```sh
 # Change the following IP address to the Raspberry PI IP address, the hostname is ubiquityrobot
 10.1.160.200 	ubiquityrobot
@@ -85,7 +85,7 @@ Last, we need to add all the machines we want to connect to the PI in ```/etc/ho
 <a name="desk"></a>
  ## Setting up the desktop computer
  
- The desktop computer is used for remote access to the Raspberry PI and for running the remote control software written in PhaROS. Therefore, this computer need to be ROS compliant. To install ROS kinetic on the machine, please refer to [ this tutorial ](http://wiki.ros.org/kinetic/Installation/Ubuntu), we recommend the ```ros-kinetic-desktop-full``` installation. Once, the ROS install is done, some extra packages are required to be installed using the following shell script
+ The desktop computer is used for remote access to the Raspberry PI, for manual mapping process and for running the remote control software written in PhaROS. Therefore, this computer need to be ROS compliant. To install ROS kinetic on the machine, please refer to [ this tutorial ](http://wiki.ros.org/kinetic/Installation/Ubuntu), we recommend the ```ros-kinetic-desktop-full``` installation. Once the ROS install is done, some extra packages are required to be installed using the following shell script
  
  ```sh
  #! /bin/bash
@@ -152,9 +152,9 @@ source ~/.bashrc
  # now this will take some time, take a coffee
  ```
  
- Once everything is installed, one need to connect the machine to the same **wifi network with the raspberry PI **and configure a** static IP and hostname accordingly** (e.g. hostname is **nono** and **IP** is 10.1.160.205 for the above example). 
+ Once everything is installed, the machine need to be connected to the same **wifi network as the raspberry PI** and **configured with a static IP** (e.g. hostname is **nono** and **IP** is 10.1.160.205 for the above example). 
  
- Once again, to be able to communicate with other machine on the ROS network (e.g. the raspberry PI), all remote machine need to be added to ```/etc/hosts```
+ Once again, to be able to communicate with other machine on the ROS network (e.g. the raspberry PI), all remote machines need to be added to ```/etc/hosts```
  ```sh
  # Change the following line to the current hostname and IP address, for example my machine
  # host name is nono and my IP is 10.1.160.205
@@ -166,7 +166,7 @@ source ~/.bashrc
  
  <a name="mapping"></a>
  ## Mapping the environment
- Mapping the environment using KartoSLAM requires a lot of computational resource, therefore, it can not be done using only the Raspberry PI. That why we need the desktop computer. The ideal is to use the Raspberry PI as a ROS master that collect the laser and odometry data from the laser sensor, then use the desktop computer to run the SLAM algorithm and create a map base on the sensor data from the PI. To do that, we need first connect to the raspberry PI from the desktop via ssh, from a terminal, execute the following command:
+ Mapping the environment using KartoSLAM requires a lot of computational resources, therefore, it can not be done using only the Raspberry PI. That why we need the desktop computer. The ideal is to use the Raspberry PI as a ROS master that collect the laser and odometry data from the laser sensor, then use the desktop computer to run the SLAM algorithm from distance and create a map base on the sensor data from the PI. To that end, we first need to connect to the raspberry PI from the desktop via ssh, from a terminal, execute the following command:
  
 ```sh
 # make sure that the desktop and the rapberry Pi are on the same wifi network
