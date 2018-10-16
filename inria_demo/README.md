@@ -166,7 +166,7 @@ source ~/.bashrc
  
  <a name="mapping"></a>
  ## Mapping the environment
- Mapping the environment using KartoSLAM requires a lot of computational resources, therefore, it can not be done using only the Raspberry PI. That why we need the desktop computer. The ideal is to use the Raspberry PI as a ROS master that collect the laser and odometry data from the laser sensor, then use the desktop computer to run the SLAM algorithm from distance and create a map base on the sensor data from the PI. To that end, we first need to connect to the raspberry PI from the desktop via ssh, from a terminal, execute the following command:
+ Mapping the environment using KartoSLAM requires a lot of computational resources, therefore, it can not be done using only the Raspberry PI. That why we need the desktop computer. The idea is to use the Raspberry PI as a ROS master that collects the laser and odometry data, then use the desktop computer to run the SLAM algorithm from distance and create a map base on the sensor data from the PI. To that end, we first need to connect to the raspberry PI from the desktop via ssh and run a minimal mapping stack on it. From a terminal, execute the following command:
  
 ```sh
 # make sure that the desktop and the rapberry Pi are on the same wifi network
@@ -176,7 +176,7 @@ ssh ubuntu@ubiquityrobot
 roslaunch inria_demo minimal.launch
 ```
 
-From another terminal, run the SLAM algorithm on the desktop using
+From another terminal, run the SLAM algorithm on the desktop using:
 ```sh
 # The ROS master uri must be the IP address of the Raspberry Pi, which actually run a ros master
 # replace the following address with the PI's address
