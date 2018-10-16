@@ -1,6 +1,6 @@
 <launch>
 
- <include file="$(find inria_demo)/launch/minimal.launch" />
+ <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
   <node pkg="slam_karto_g2o" type="slam_karto_g2o" name="slam_karto_g2o" output="screen">
     <rosparam command="load" file="$(find slam_karto_g2o)/config/mapping_karto_g2o.yaml" />
   </node>
