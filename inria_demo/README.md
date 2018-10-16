@@ -173,7 +173,7 @@ source ~/.bashrc
 ssh ubuntu@ubiquityrobot
 # password is ubuntu
 # the launch the minimal mapping stack from the rasberry pi
-roslaunch inria_demo minimal.launch
+roslaunch inria_demo minimal_mapping.launch
 ```
 
 From another terminal, run the SLAM algorithm on the desktop using:
