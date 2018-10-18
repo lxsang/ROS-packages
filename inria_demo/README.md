@@ -172,7 +172,7 @@ source ~/.bashrc
 # make sure that the desktop and the rapberry Pi are on the same wifi network
 ssh ubuntu@ubiquityrobot
 # password is ubuntu
-# the launch the minimal mapping stack from the rasberry pi
+# then launch the minimal mapping stack from the rasberry pi
 roslaunch inria_demo minimal_mapping.launch
 ```
 
@@ -202,3 +202,14 @@ ROS_MASTER_URI=http://10.1.160.200:11311 roslaunch inria_demo mapping.launch
  
  <a name="nav"></a>
  ## Navigation
+ 
+When the map of the environment is available, connect to the Pi from ssh as above and run the command
+```sh
+ssh ubuntu@ubiquityrobot
+# password is ubuntu
+# then launch navigation stack stack from the rasberry pi
+navi
+```
+
+The robot can now be controlled from the PhaROS client
+(contd.)
