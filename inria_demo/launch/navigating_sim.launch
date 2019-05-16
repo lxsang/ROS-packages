@@ -30,8 +30,22 @@
   <include file = "$(find inria_demo)/launch/include/amcl_demo.launch" >
     <arg name="map_file" value="$(arg map_file)" />
   </include>
-
+  <include file="$(find inria_demo)/launch/web.launch" />
   
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+  <!-- joystick -->
+  <node pkg="joy" type="joy_node" name="joy_node">
+    <param name="joy_node/dev" value="/dev/input/js0"/>
+  </node>
+  <node pkg="scan_odom_sync" type="scan_odom_sync" name="scan_odom_sync" />
+  <include file="$(find turtlebot_teleop)/launch/includes/velocity_smoother.launch.xml"/>
 
+  <node pkg="turtlebot_teleop" type="turtlebot_teleop_joy" name="turtlebot_teleop_joystick">
+    <param name="scale_angular" value="1.5"/>
+    <param name="scale_linear" value="0.5"/>
+    <param name="axis_deadman" value="4"/>
+    <param name="axis_linear" value="1"/>
+    <param name="axis_angular" value="0"/>
+    <remap from="turtlebot_teleop_joystick/cmd_vel" to="/mobile_base/commands/velocity"/>
+  </node>
 </launch>

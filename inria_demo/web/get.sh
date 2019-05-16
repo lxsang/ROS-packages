@@ -4,7 +4,7 @@
 set +e
 rm -r ant-http
 set -e
-wget --no-check-certificate -O - https://apps.lxsang.me/script/antd | bash -s ""
+wget --no-check-certificate -O - https://get.makeand.run/antd | bash -s ""
 cp -r ./plugins ant-http/
 cd ant-http
 make antd_plugins

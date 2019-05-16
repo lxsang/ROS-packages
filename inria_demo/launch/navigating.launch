@@ -1,14 +1,28 @@
 <launch>
-  <arg name="map_file" value="$(find inria_demo)/launch/map.yaml" />
+  <arg name="map_file" value="$(find inria_demo)/launch/office_map.yaml" />
 
    <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
   
   <node name="tf_lookup" pkg="tf_lookup" type="tf_lookup_node" />
   <node name="robot_pose_publisher" pkg="robot_pose_publisher" type="robot_pose_publisher" />
-  <node name="dock_client" pkg="inria_demo" type="autodock_client.py" />
+  <!--node name="dock_client" pkg="inria_demo" type="autodock_client.py" /-->
 
-  <include file="$(find inria_demo)/launch/include/docking_minimal.launch" />
-  <include file="$(find inria_demo)/launch/web.launch" />
+  <!--include file="$(find inria_demo)/launch/include/docking_minimal.launch" />
+  <include file="$(find inria_demo)/launch/web.launch" /-->
+  
+  <param name="/use_sim_time" value="true"/>
+  <param name="robot_description" command="cat $(find gazebo_sim)/launch/includes/turtlebot.urdf"/>
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find gazebo_sim)/launch/includes/turtlebot.urdf -urdf -z 1 -model turtlebot" />
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <!--arg name="world_name" value="$(find gazebo_sim)/launch/includes/worlds/indoor.world"/--> <!-- worlds/willowgarage.world Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/> <!-- Inert - see gazebo_ros_pkgs issue #491 -->
+    <arg name="recording" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
 
 
   <include file="$(find adaptive_local_planner)/launch/includes/move_base.launch.xml" />
@@ -17,5 +31,5 @@
     <arg name="map_file" value="$(arg map_file)" />
   </include>
 
-  <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/-->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
 </launch>

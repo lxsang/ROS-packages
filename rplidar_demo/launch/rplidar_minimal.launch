@@ -1,0 +1,5 @@
+<launch>
+    <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
+    <node pkg="tf" type="static_transform_publisher" name="base_to_laser_tf" args="0.0 0 0.0 0 0 0 1 base_link laser 80" />
+    <include file="$(find rplidar_ros)/launch/rplidar.launch" />
+</launch>

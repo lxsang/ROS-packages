@@ -172,6 +172,19 @@ var VIZ = {
                 name: "/robotcmd/dock",
                 messageType: "std_msgs/Bool"
             });
+            VIZ.handles.goalidx = new ROSLIB.Topic({
+                ros: ros,
+                name: "/robotcmd/goal_idx",
+                messageType: "std_msgs/Int32"
+            });
+            VIZ.handles.goalidx.subscribe(function(msg){
+                VIZ.currentGoal = msg.data - 1;
+            });
+            VIZ.handles.setgoalidx= new ROSLIB.Topic({
+                ros: ros,
+                name: "/robotcmd/goal_idx",
+                messageType: "std_msgs/Int32"
+            });
             VIZ.handles.goalstatus.subscribe(function (msg) {
                 if (VIZ.lock) return;
                 if(VIZ.msgcount > 0) { VIZ.msgcount--; return;  }
@@ -240,19 +253,18 @@ var VIZ = {
     },
     goNext: function () {
         if (!VIZ.msgs.goals || VIZ.msgs.goals.length == 0) return;
-        VIZ.currentGoal++;
-        if (VIZ.currentGoal > VIZ.msgs.goals.length - 1)
-            VIZ.currentGoal = 0;
-        VIZ.goToGoal(VIZ.currentGoal);
+        VIZ.goToGoal(VIZ.currentGoal + 1);
     },
     goHome: function() {
         if( VIZ.home == -1) return;
         VIZ.goToGoal(VIZ.home);
         VIZ.dock = true;
     },
-    goToGoal: function (i) {
+    goToGoal: function (gid) {
         // go to the next goal
-        VIZ.currentGoal = i;
+        var i = gid
+        if (i > VIZ.msgs.goals.length - 1)
+            i = 0;
         var pose = { x: VIZ.msgs.goals[i].position.x, y: - VIZ.msgs.goals[i].position.y };
         var orientation = VIZ.msgs.goals[i].orientation;
         pose.x = pose.x * VIZ.resolution;
@@ -271,6 +283,7 @@ var VIZ = {
             }
         });
         VIZ.handles.goto.publish(data);
+        VIZ.handles.setgoalidx.publish(new ROSLIB.Message({data: i+1}));
     },
     drawGoals: function (msg) {
         //console.log("draw goal");

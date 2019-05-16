@@ -1,0 +1,47 @@
+<launch>
+     <arg name="base"       default="$(optenv TURTLEBOT_BASE kobuki)"/>  <!-- create, rhoomba -->
+    <arg name="stacks"     default="$(optenv TURTLEBOT_STACKS hexagons)"/>  <!-- circles, hexagons -->
+    <arg name="3d_sensor"  default="$(optenv TURTLEBOT_3D_SENSOR kinect)"/>  <!-- kinect, asus_xtion_pro -->
+    <arg name="configuration_basename" value="turtlebot_urg_lidar_2d.lua" />
+    <param name ="use_sim_time" value="true"/> 
+
+    <node pkg="rosbag" type="play" name="player1" output="screen" args="--quiet --clock  /home/mrsang/bagfiles/benchmark_cross_2018-09-01-17-33-14.bag">
+        <!--remap from="/submap_list" to = "/submap_list_1" />
+        <remap from ="/imu" to = "imu_1" /-->
+        <remap from="/laser/scan" to="scan"/>
+    </node>
+    <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>
+   <include file="$(find turtlebot_bringup)/launch/includes/robot.launch.xml">
+    <arg name="base" value="$(arg base)" />
+    <arg name="stacks" value="$(arg stacks)" />
+    <arg name="3d_sensor" value="$(arg 3d_sensor)" />
+  </include-->
+
+  <node name="cartographer_node" pkg="cartographer_ros"
+      type="cartographer_node" args="
+          -configuration_directory
+              $(find cartographer_turtlebot)/configuration_files
+          -configuration_basename $(arg configuration_basename)"
+      output="screen">
+    <remap from="points2" to="/camera/depth/points" />
+  </node>
+
+  <node name="flat_world_imu_node" pkg="cartographer_turtlebot"
+      type="cartographer_flat_world_imu_node" output="screen">
+    <!--remap from="imu_in" to="/mobile_base/sensors/imu_data_raw" />
+    <remap from="imu_out" to="/imu" /-->
+  </node>
+
+  <node name="cartographer_occupancy_grid_node" pkg="cartographer_ros"
+      type="cartographer_occupancy_grid_node" args="-resolution 0.05" >
+      <remap from="/map" to="/pmap" />
+	</node>
+
+     <node pkg="multi_merge" type="map_threshold" respawn="false" name="map_threshold" output="screen" launch-prefix="">
+        <param name="th_value" value="60"/>
+        <param name="map_in_topic" value="/pmap"/>
+        <param name="map_out_topic" value="/map"/>
+  </node>
+  
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adaptive_local_planner)/rviz/robot_navigation.rviz"/>
+</launch>
